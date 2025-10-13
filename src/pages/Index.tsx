@@ -87,10 +87,14 @@ const Index = () => {
   const fetchRealData = async () => {
     setIsLoading(true);
     console.log("🔄 Fetching real MT5 data...");
+    console.log("🌐 API URL:", import.meta.env.VITE_MT5_API_URL || "http://84.247.166.52:8000");
+    console.log("🔒 Current protocol:", window.location.protocol);
     
     try {
       // Check MT5 status first
       console.log("📡 Checking MT5 status...");
+      console.log("🔗 Making request to:", `${import.meta.env.VITE_MT5_API_URL || "http://84.247.166.52:8000"}/api/status`);
+      
       const status = await mt5Api.getStatus();
       console.log("✅ MT5 status:", status);
       setMt5Connected(status.mt5_connected);
@@ -193,13 +197,30 @@ const Index = () => {
       // More specific error messages
       const errorMessage = error instanceof Error ? error.message : String(error);
       console.error("Error details:", errorMessage);
+      console.error("Error type:", error?.constructor?.name);
+      
+      // Check if it's a mixed content issue
+      const isHttpsToHttp = window.location.protocol === 'https:' && 
+                            (import.meta.env.VITE_MT5_API_URL || "http://84.247.166.52:8000").startsWith('http:');
       
       if (errorMessage.includes("Failed to fetch") || errorMessage.includes("NetworkError")) {
-        toast({
-          title: "Помилка мережі",
-          description: "Не вдалося підключитися до MT5 API. Перевірте: 1) Чи працює сервер 2) CORS налаштування 3) Firewall",
-          variant: "destructive",
-        });
+        if (isHttpsToHttp) {
+          toast({
+            title: "⚠️ Mixed Content Blocked",
+            description: "Браузер блокує HTTP запити з HTTPS сайту. Сервер потребує HTTPS (SSL сертифікат) або використайте Edge Function проксі.",
+            variant: "destructive",
+          });
+          console.error("🔒 MIXED CONTENT: HTTPS site trying to access HTTP API");
+          console.error("💡 Solution 1: Enable HTTPS on your MT5 server (recommended)");
+          console.error("💡 Solution 2: Use Supabase Edge Function as proxy");
+          console.error("💡 Solution 3: For development only - use HTTP version of this site");
+        } else {
+          toast({
+            title: "Помилка мережі",
+            description: "Не вдалося підключитися до MT5 API. Перевірте: 1) Чи працює сервер 2) CORS налаштування 3) Firewall",
+            variant: "destructive",
+          });
+        }
       } else {
         toast({
           title: "Помилка завантаження",
