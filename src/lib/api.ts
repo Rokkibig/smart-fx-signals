@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_MT5_API_URL || "http://84.247.166.52:8000";
+const API_BASE = import.meta.env.VITE_MT5_API_URL || "https://84.247.166.52";
 
 export interface TickData {
   symbol: string;
