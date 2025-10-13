@@ -2,6 +2,10 @@ import { useState, useEffect } from "react";
 import { Header } from "@/components/Header";
 import { PairCard } from "@/components/PairCard";
 import { Footer } from "@/components/Footer";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
+import { generateASCII, copyToClipboard } from "@/utils/asciiExport";
+import { Copy } from "lucide-react";
 
 // Mock data for demo - replace with actual API calls
 const generateMockData = () => {
@@ -71,9 +75,10 @@ const generateMockData = () => {
 };
 
 const Index = () => {
-  const [mode] = useState<"rule" | "hybrid">("hybrid");
+  const [mode, setMode] = useState<"rule" | "hybrid">("hybrid");
   const [lastUpdate, setLastUpdate] = useState("");
   const [pairData, setPairData] = useState(generateMockData());
+  const { toast } = useToast();
 
   useEffect(() => {
     const updateTime = () => {
@@ -101,15 +106,50 @@ const Index = () => {
     };
   }, []);
 
+  const handleCopyASCII = async () => {
+    const ascii = generateASCII(pairData, lastUpdate);
+    const success = await copyToClipboard(ascii);
+    
+    if (success) {
+      toast({
+        title: "Скопійовано",
+        description: "ASCII формат скопійовано в буфер обміну",
+      });
+    } else {
+      toast({
+        title: "Помилка",
+        description: "Не вдалося скопіювати",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-5xl mx-auto px-6 py-12">
-        <Header mode={mode} lastUpdate={lastUpdate} autoRefresh={true} />
+        <Header 
+          mode={mode} 
+          onModeChange={setMode}
+          lastUpdate={lastUpdate} 
+          autoRefresh={true} 
+        />
 
         <main className="space-y-6">
+          <div className="flex justify-end mb-4">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={handleCopyASCII}
+              className="gap-2"
+            >
+              <Copy className="w-4 h-4" />
+              Копіювати ASCII
+            </Button>
+          </div>
+
           <div className="grid gap-6">
             {pairData.map((data) => (
-              <PairCard key={data.pair} data={data} />
+              <PairCard key={data.pair} data={data} mode={mode} />
             ))}
           </div>
         </main>

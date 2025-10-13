@@ -37,8 +37,13 @@ const getTrendBg = (trend: "↗" | "↘" | "→") => {
   return "bg-muted/30";
 };
 
-export const PairCard = ({ data }: { data: PairData }) => {
+export const PairCard = ({ data, mode }: { data: PairData; mode: "rule" | "hybrid" }) => {
   const { pair, price, trend_matrix, trend, strength, signals } = data;
+  
+  // Filter signals based on mode
+  const displaySignals = mode === "rule" 
+    ? signals.filter(s => s.source === "Rule-Only")
+    : signals;
 
   return (
     <div className="dotted-border bg-card p-6 space-y-4">
@@ -91,9 +96,9 @@ export const PairCard = ({ data }: { data: PairData }) => {
       </div>
 
       {/* Signals */}
-      {signals.length > 0 && (
+      {displaySignals.length > 0 && (
         <div className="space-y-3 pt-2">
-          {signals.map((signal, idx) => (
+          {displaySignals.map((signal, idx) => (
             <div
               key={idx}
               className={`p-3 ${getTrendBg(signal.type.includes("buy") ? "↗" : "↘")}`}
@@ -125,7 +130,7 @@ export const PairCard = ({ data }: { data: PairData }) => {
         </div>
       )}
 
-      {signals.length === 0 && (
+      {displaySignals.length === 0 && (
         <div className="text-center text-sm text-muted-foreground py-4">
           Немає активних сигналів
         </div>
