@@ -80,6 +80,22 @@ const Index = () => {
   const [pairData, setPairData] = useState(generateMockData());
   const { toast } = useToast();
 
+  const handleManualRefresh = () => {
+    setPairData(generateMockData());
+    const now = new Date();
+    setLastUpdate(
+      now.toLocaleString("uk-UA", {
+        timeZone: "Europe/Berlin",
+        dateStyle: "short",
+        timeStyle: "short",
+      }) + " CET"
+    );
+    toast({
+      title: "Оновлено",
+      description: "Дані успішно оновлено",
+    });
+  };
+
   useEffect(() => {
     const updateTime = () => {
       const now = new Date();
@@ -93,12 +109,12 @@ const Index = () => {
     };
 
     updateTime();
-    const timer = setInterval(updateTime, 30000);
+    const timer = setInterval(updateTime, 60000); // Update time every minute
 
-    // Auto-refresh data every 30 seconds
+    // Auto-refresh data every 5 minutes (300000ms) to save API calls
     const dataTimer = setInterval(() => {
       setPairData(generateMockData());
-    }, 30000);
+    }, 300000);
 
     return () => {
       clearInterval(timer);
@@ -135,16 +151,30 @@ const Index = () => {
         />
 
         <main className="space-y-6">
-          <div className="flex justify-end mb-4">
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={handleCopyASCII}
-              className="gap-2"
-            >
-              <Copy className="w-4 h-4" />
-              Копіювати ASCII
-            </Button>
+          <div className="flex justify-between items-center mb-4">
+            <div className="text-xs text-muted-foreground">
+              Авто-оновлення: кожні 5 хв • AI запити: тільки в режимі Rule+AI
+            </div>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={handleManualRefresh}
+                className="gap-2"
+              >
+                <Copy className="w-4 h-4" />
+                Оновити зараз
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={handleCopyASCII}
+                className="gap-2"
+              >
+                <Copy className="w-4 h-4" />
+                Копіювати ASCII
+              </Button>
+            </div>
           </div>
 
           <div className="grid gap-6">

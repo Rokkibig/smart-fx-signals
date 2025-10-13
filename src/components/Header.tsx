@@ -26,7 +26,7 @@ export const Header = ({ mode, onModeChange, lastUpdate, autoRefresh }: HeaderPr
                 <span className="text-xs">•</span>
                 <span className="flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" />
-                  Авто-оновлення
+                  Авто-оновлення (5 хв)
                 </span>
               </>
             )}
