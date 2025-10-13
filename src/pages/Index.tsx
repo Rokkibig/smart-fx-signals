@@ -86,12 +86,17 @@ const Index = () => {
   // Fetch real MT5 data
   const fetchRealData = async () => {
     setIsLoading(true);
+    console.log("🔄 Fetching real MT5 data...");
+    
     try {
       // Check MT5 status first
+      console.log("📡 Checking MT5 status...");
       const status = await mt5Api.getStatus();
+      console.log("✅ MT5 status:", status);
       setMt5Connected(status.mt5_connected);
       
       if (!status.mt5_connected) {
+        console.warn("⚠️ MT5 not connected, using demo data");
         toast({
           title: "MT5 не підключено",
           description: "Використовуються демо-дані. Перевірте підключення до MT5 сервера.",
@@ -102,11 +107,17 @@ const Index = () => {
       }
 
       const pairs = ["EURUSD", "GBPUSD", "USDJPY", "USDCHF", "AUDUSD", "NZDUSD", "USDCAD"];
+      console.log("📊 Fetching data for pairs:", pairs);
+      
       const realData = await Promise.all(
         pairs.map(async (pair) => {
           try {
+            console.log(`🔍 Fetching ${pair}...`);
             const tick = await mt5Api.getTick(pair);
+            console.log(`✅ ${pair} tick:`, tick);
+            
             const ohlcv = await mt5Api.getOHLCV(pair, "H1", 100);
+            console.log(`✅ ${pair} OHLCV bars:`, ohlcv.length);
             
             // Generate trend matrix based on real data
             const trends: Array<"↗" | "↘" | "→"> = ["↗", "↘", "→"];
@@ -158,13 +169,15 @@ const Index = () => {
               signals,
             };
           } catch (error) {
-            console.error(`Error fetching ${pair}:`, error);
+            console.error(`❌ Error fetching ${pair}:`, error);
             return null;
           }
         })
       );
 
       const validData = realData.filter(d => d !== null);
+      console.log(`✅ Valid data received: ${validData.length}/${pairs.length} pairs`);
+      
       if (validData.length > 0) {
         setPairData(validData);
         toast({
@@ -175,16 +188,31 @@ const Index = () => {
         throw new Error("No valid data received");
       }
     } catch (error) {
-      console.error("Error fetching real data:", error);
-      toast({
-        title: "Помилка завантаження",
-        description: "Не вдалося отримати дані з MT5. Використовуються демо-дані.",
-        variant: "destructive",
-      });
+      console.error("❌ Error fetching real data:", error);
+      
+      // More specific error messages
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error("Error details:", errorMessage);
+      
+      if (errorMessage.includes("Failed to fetch") || errorMessage.includes("NetworkError")) {
+        toast({
+          title: "Помилка мережі",
+          description: "Не вдалося підключитися до MT5 API. Перевірте: 1) Чи працює сервер 2) CORS налаштування 3) Firewall",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Помилка завантаження",
+          description: `Помилка: ${errorMessage}. Використовуються демо-дані.`,
+          variant: "destructive",
+        });
+      }
+      
       setPairData(generateMockData());
       setMt5Connected(false);
     } finally {
       setIsLoading(false);
+      console.log("🏁 Fetch complete");
     }
   };
 
