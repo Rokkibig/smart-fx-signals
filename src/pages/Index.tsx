@@ -87,13 +87,13 @@ const Index = () => {
   const fetchRealData = async () => {
     setIsLoading(true);
     console.log("🔄 Fetching real MT5 data...");
-    console.log("🌐 API URL:", import.meta.env.VITE_MT5_API_URL || "http://84.247.166.52:8000");
+    console.log("🌐 API URL:", import.meta.env.VITE_MT5_API_URL || "https://84.247.166.52");
     console.log("🔒 Current protocol:", window.location.protocol);
     
     try {
       // Check MT5 status first
       console.log("📡 Checking MT5 status...");
-      console.log("🔗 Making request to:", `${import.meta.env.VITE_MT5_API_URL || "http://84.247.166.52:8000"}/api/status`);
+      console.log("🔗 Making request to:", `${import.meta.env.VITE_MT5_API_URL || "https://84.247.166.52"}/api/status`);
       
       const status = await mt5Api.getStatus();
       console.log("✅ MT5 status:", status);
@@ -200,28 +200,36 @@ const Index = () => {
       console.error("Error type:", error?.constructor?.name);
       
       // Check if it's a mixed content issue
-      const isHttpsToHttp = window.location.protocol === 'https:' && 
-                            (import.meta.env.VITE_MT5_API_URL || "http://84.247.166.52:8000").startsWith('http:');
+       const apiBase = import.meta.env.VITE_MT5_API_URL || "https://84.247.166.52";
+       const isHttpsToHttp = window.location.protocol === 'https:' && apiBase.startsWith('http:');
+       const isHttpsCertIssue = window.location.protocol === 'https:' && apiBase.startsWith('https:');
       
-      if (errorMessage.includes("Failed to fetch") || errorMessage.includes("NetworkError")) {
-        if (isHttpsToHttp) {
-          toast({
-            title: "⚠️ Mixed Content Blocked",
-            description: "Браузер блокує HTTP запити з HTTPS сайту. Сервер потребує HTTPS (SSL сертифікат) або використайте Edge Function проксі.",
-            variant: "destructive",
-          });
-          console.error("🔒 MIXED CONTENT: HTTPS site trying to access HTTP API");
-          console.error("💡 Solution 1: Enable HTTPS on your MT5 server (recommended)");
-          console.error("💡 Solution 2: Use Supabase Edge Function as proxy");
-          console.error("💡 Solution 3: For development only - use HTTP version of this site");
-        } else {
-          toast({
-            title: "Помилка мережі",
-            description: "Не вдалося підключитися до MT5 API. Перевірте: 1) Чи працює сервер 2) CORS налаштування 3) Firewall",
-            variant: "destructive",
-          });
-        }
-      } else {
+       if (errorMessage.includes("Failed to fetch") || errorMessage.includes("NetworkError")) {
+         if (isHttpsToHttp) {
+           toast({
+             title: "⚠️ Mixed Content Blocked",
+             description: "Браузер блокує HTTP запити з HTTPS сайту. Сервер потребує HTTPS (SSL сертифікат) або використайте Edge Function проксі.",
+             variant: "destructive",
+           });
+           console.error("🔒 MIXED CONTENT: HTTPS site trying to access HTTP API");
+           console.error("💡 Solution 1: Enable HTTPS on your MT5 server (recommended)");
+           console.error("💡 Solution 2: Use Supabase Edge Function as proxy");
+           console.error("💡 Solution 3: For development only - use HTTP version of this site");
+         } else if (isHttpsCertIssue) {
+           toast({
+             title: "SSL/HTTPS помилка",
+             description: "Не вдається підключитися по HTTPS. Перевірте сертифікат (IP vs домен) або використайте домен з валідним SSL.",
+             variant: "destructive",
+           });
+           console.error("🔐 HTTPS/TLS error: likely invalid certificate or hostname mismatch");
+         } else {
+           toast({
+             title: "Помилка мережі",
+             description: "Не вдалося підключитися до MT5 API. Перевірте: 1) Чи працює сервер 2) CORS налаштування 3) Firewall",
+             variant: "destructive",
+           });
+         }
+       } else {
         toast({
           title: "Помилка завантаження",
           description: `Помилка: ${errorMessage}. Використовуються демо-дані.`,
