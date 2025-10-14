@@ -9,6 +9,7 @@ import { Copy, RefreshCw, Activity } from "lucide-react";
 import { getLatestPrices, updatePricesFromAPI } from "@/lib/forexDB";
 import { getFeaturesBySymbol, getTrendMatrix, calculateTrendStrength, getOverallTrend, fullUpdate, getMarketMode, generateRangeSignals } from "@/lib/indicators";
 import { useAuth } from "@/contexts/AuthContext";
+import { useMarketStatus } from "@/hooks/useMarketStatus";
 
 // Mock data for demo - replace with actual API calls
 const generateMockData = () => {
@@ -83,8 +84,10 @@ const Index = () => {
   const [pairData, setPairData] = useState(generateMockData());
   const [isLoading, setIsLoading] = useState(false);
   const [aiActive, setAiActive] = useState(false);
+  const [nextRefreshIn, setNextRefreshIn] = useState(300); // 5 minutes in seconds
   const { toast } = useToast();
   const { user, signInWithGoogle, credits } = useAuth();
+  const marketStatus = useMarketStatus();
 
   // Fetch data from database with real indicators
   const fetchRealData = async () => {
@@ -255,16 +258,25 @@ const Index = () => {
 
     const timer = setInterval(updateTime, 60000); // Update time every minute
 
-    // Auto-refresh data every 15 minutes (900000ms) to save API calls
-    const dataTimer = setInterval(() => {
-      fetchRealData();
-    }, 900000);
+    // Countdown timer (every second)
+    const countdownInterval = setInterval(() => {
+      setNextRefreshIn(prev => {
+        if (prev <= 1) {
+          // Reset to 5 minutes and trigger refresh if market is open
+          if (marketStatus.isOpen) {
+            fetchRealData();
+          }
+          return 300;
+        }
+        return prev - 1;
+      });
+    }, 1000);
 
     return () => {
       clearInterval(timer);
-      clearInterval(dataTimer);
+      clearInterval(countdownInterval);
     };
-  }, []);
+  }, [marketStatus.isOpen]);
 
   const handleCopyASCII = async () => {
     const ascii = generateASCII(pairData, lastUpdate);
@@ -287,12 +299,13 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-5xl mx-auto px-6 py-12">
-        <Header 
-          mode={mode} 
-          onModeChange={setMode}
-          lastUpdate={lastUpdate} 
-          autoRefresh={true} 
-        />
+      <Header 
+        mode={mode}
+        onModeChange={setMode}
+        lastUpdate={lastUpdate}
+        autoRefresh={true}
+        nextRefreshIn={nextRefreshIn}
+      />
 
         <main className="space-y-6">
           <div className="flex justify-between items-center mb-4">
@@ -317,8 +330,8 @@ const Index = () => {
                 variant="default" 
                 size="sm"
                 onClick={handleFullUpdate}
-                disabled={isLoading}
-                className="gap-2"
+                disabled={isLoading || !marketStatus.isOpen}
+                className={`gap-2 ${!marketStatus.isOpen ? 'opacity-50' : ''}`}
               >
                 <Activity className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
                 {isLoading ? 'Оновлення...' : 'Завантажити історію'}
@@ -327,8 +340,8 @@ const Index = () => {
                 variant="outline" 
                 size="sm"
                 onClick={handleManualRefresh}
-                disabled={isLoading}
-                className="gap-2"
+                disabled={isLoading || !marketStatus.isOpen}
+                className={`gap-2 ${!marketStatus.isOpen ? 'opacity-50' : ''}`}
               >
                 <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
                 {isLoading ? 'Завантаження...' : 'Оновити екран'}
