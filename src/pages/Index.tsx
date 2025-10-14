@@ -85,22 +85,22 @@ const Index = () => {
   const { toast } = useToast();
   const { user, signInWithGoogle, credits } = useAuth();
 
-  // Fetch data from MT5
+  // Fetch data from Forex providers
   const fetchRealData = async () => {
     setIsLoading(true);
-    console.log("🔄 Fetching MT5 data...");
+    console.log("🔄 Fetching Forex API data...");
     
     try {
-      const pairs = ["EURUSD", "GBPUSD", "USDJPY", "USDCHF", "AUDUSD", "NZDUSD", "USDCAD"];
+      const pairs = ["EUR/USD", "GBP/USD", "USD/JPY", "USD/CHF", "AUD/USD", "NZD/USD", "USD/CAD"];
       console.log("📊 Fetching data for pairs:", pairs);
       
       const realData = await Promise.all(
         pairs.map(async (symbol) => {
           try {
-            console.log(`🔍 Fetching ${symbol} from MT5...`);
+            console.log(`🔍 Fetching ${symbol} from Forex API...`);
             
-            // Отримуємо тік дані
-            const tick = await freeForexApi.getTick(symbol.replace("/", ""));
+            // Отримуємо тік дані з Forex провайдерів
+            const tick = await freeForexApi.getTick(symbol);
             console.log(`✅ ${symbol} tick:`, tick);
             
             // Генеруємо trend matrix на основі реальних даних
@@ -147,7 +147,7 @@ const Index = () => {
             }
 
             return {
-              pair: symbol.slice(0, 3) + "/" + symbol.slice(3),
+              pair: symbol,
               price,
               trend_matrix,
               trend: trends[Math.floor(Math.random() * trends.length)],
@@ -167,17 +167,17 @@ const Index = () => {
       if (validData.length > 0) {
         setPairData(validData);
         toast({
-          title: "Дані оновлено з MT5",
-          description: `Завантажено дані для ${validData.length} пар через HTTPS`,
+          title: "Дані оновлено (Forex API)",
+          description: `Оновлено дані для ${validData.length} пар через HTTPS`,
         });
       } else {
-        throw new Error("No valid data received from MT5");
+        throw new Error("No valid data received from Forex API");
       }
     } catch (error) {
-      console.error("❌ Error fetching MT5 data:", error);
+      console.error("❌ Error fetching Forex API data:", error);
       toast({
         title: "Використовуються демо-дані",
-        description: "MT5 API тимчасово недоступний. Переконайтеся, що сервер запущений на https://84.247.166.52",
+        description: "Зовнішні Forex провайдери тимчасово недоступні. Спробуємо ще раз пізніше.",
         variant: "default",
       });
       setPairData(generateMockData());

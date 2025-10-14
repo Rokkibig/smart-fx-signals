@@ -25,7 +25,7 @@ interface PairData {
 
 export function generateASCII(data: PairData[], timestamp: string): string {
   let output = `Дата/час: ${timestamp}\n`;
-  output += `Джерело котирувань: MT5 (live). Новини high-impact: врахована пауза ±30 хв.\n\n`;
+  output += `Джерело котирувань: Forex API (live). Новини high-impact: врахована пауза ±30 хв.\n\n`;
 
   for (const pair of data) {
     const { pair: symbol, price, trend_matrix, trend, strength, signals } = pair;
