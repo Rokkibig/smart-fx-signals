@@ -113,34 +113,31 @@ const Index = () => {
             };
 
             // Генеруємо сигнали на основі реальної ціни
-            const hasSell = Math.random() > 0.5;
-            const hasRule = Math.random() > 0.3;
-            const hasAI = mode === "hybrid" && Math.random() > 0.4;
+            const price = tick.bid || tick.price || tick.last || 0;
             const signals = [];
 
-            const price = tick.bid || tick.price || tick.last || 0;
+            // Завжди генеруємо Rule-Only сигнал
+            const isBuy = Math.random() > 0.5;
+            signals.push({
+              type: isBuy ? "buy_stop" : "sell_stop",
+              entry: isBuy ? price + 0.002 : price - 0.002,
+              sl: isBuy ? price - 0.001 : price + 0.001,
+              tp1: isBuy ? price + 0.004 : price - 0.004,
+              tp2: isBuy ? price + 0.006 : price - 0.006,
+              prob: Math.floor(Math.random() * 15) + 50, // 50-65%
+              source: "Rule-Only",
+              notes: Math.random() > 0.5 ? "Ретест нижньої межі діапазону, ADX>20" : undefined,
+            });
 
-            if (hasSell && hasRule) {
+            // Для hybrid режиму додаємо AI сигнал з вищою ймовірністю
+            if (mode === "hybrid" && Math.random() > 0.3) {
               signals.push({
-                type: "sell_stop",
-                entry: price - 0.002,
-                sl: price + 0.001,
-                tp1: price - 0.004,
-                tp2: price - 0.006,
-                prob: 55,
-                source: "Rule-Only",
-                notes: Math.random() > 0.5 ? "Ретест нижньої межі діапазону, ADX>20" : undefined,
-              });
-            }
-
-            if (hasSell && hasAI) {
-              signals.push({
-                type: "sell_stop",
-                entry: price - 0.002,
-                sl: price + 0.001,
-                tp1: price - 0.004,
-                tp2: price - 0.006,
-                prob: 59,
+                type: isBuy ? "buy_stop" : "sell_stop",
+                entry: isBuy ? price + 0.002 : price - 0.002,
+                sl: isBuy ? price - 0.001 : price + 0.001,
+                tp1: isBuy ? price + 0.004 : price - 0.004,
+                tp2: isBuy ? price + 0.006 : price - 0.006,
+                prob: Math.floor(Math.random() * 15) + 60, // 60-75%
                 source: "Rule+AI",
                 notes: "Тренд узгоджений D1/H4, ADX > 20",
               });
