@@ -54,11 +54,12 @@ serve(async (req) => {
           // Check bars for THIS specific symbol/timeframe
           const key = `${symbol}_${timeframe}`;
           const existingBars = barCounts.get(key) || 0;
-          const needsLoad = existingBars < 10;
+          const minRequired = timeframe === 'D1' ? 50 : timeframe === 'H4' ? 100 : 200;
+          const needsLoad = existingBars < minRequired;
           const fetchCount = needsLoad ? config.count : 2;
           const mode = needsLoad ? 'LOAD' : 'UPDATE';
           
-          console.log(`[FetchOHLCV] ${mode}: ${symbol} ${timeframe} (${existingBars} exist, fetching ${fetchCount})`);
+          console.log(`[FetchOHLCV] ${mode}: ${symbol} ${timeframe} (${existingBars}/${minRequired} exist, fetching ${fetchCount})`);
 
           const url = `https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(symbol)}&interval=${config.interval}&outputsize=${fetchCount}&apikey=${encodeURIComponent(TWELVE_DATA_KEY)}`;
           const response = await fetch(url);

@@ -74,14 +74,23 @@ function calculateATR(highs: number[], lows: number[], closes: number[], period:
   return atr;
 }
 
-// Calculate ADX (simplified)
+// Calculate ADX (proper implementation)
 function calculateADX(highs: number[], lows: number[], closes: number[], period: number = 14): number {
-  if (highs.length < period + 1) return 0;
+  if (highs.length < period * 2) return 0;
   
+  const trueRanges: number[] = [];
   const plusDM: number[] = [];
   const minusDM: number[] = [];
   
+  // Calculate TR, +DM, -DM
   for (let i = 1; i < highs.length; i++) {
+    const tr = Math.max(
+      highs[i] - lows[i],
+      Math.abs(highs[i] - closes[i - 1]),
+      Math.abs(lows[i] - closes[i - 1])
+    );
+    trueRanges.push(tr);
+    
     const upMove = highs[i] - highs[i - 1];
     const downMove = lows[i - 1] - lows[i];
     
@@ -89,13 +98,28 @@ function calculateADX(highs: number[], lows: number[], closes: number[], period:
     minusDM.push(downMove > upMove && downMove > 0 ? downMove : 0);
   }
   
-  const atr = calculateATR(highs, lows, closes, period);
-  if (atr === 0) return 0;
+  if (trueRanges.length < period) return 0;
   
-  let plusDI = plusDM.slice(-period).reduce((a, b) => a + b, 0) / period / atr * 100;
-  let minusDI = minusDM.slice(-period).reduce((a, b) => a + b, 0) / period / atr * 100;
+  // Calculate smoothed TR, +DM, -DM
+  let smoothedTR = trueRanges.slice(0, period).reduce((a, b) => a + b, 0);
+  let smoothedPlusDM = plusDM.slice(0, period).reduce((a, b) => a + b, 0);
+  let smoothedMinusDM = minusDM.slice(0, period).reduce((a, b) => a + b, 0);
   
-  const dx = Math.abs(plusDI - minusDI) / (plusDI + minusDI) * 100;
+  for (let i = period; i < trueRanges.length; i++) {
+    smoothedTR = smoothedTR - (smoothedTR / period) + trueRanges[i];
+    smoothedPlusDM = smoothedPlusDM - (smoothedPlusDM / period) + plusDM[i];
+    smoothedMinusDM = smoothedMinusDM - (smoothedMinusDM / period) + minusDM[i];
+  }
+  
+  if (smoothedTR === 0) return 0;
+  
+  const plusDI = (smoothedPlusDM / smoothedTR) * 100;
+  const minusDI = (smoothedMinusDM / smoothedTR) * 100;
+  
+  if (plusDI + minusDI === 0) return 0;
+  
+  const dx = (Math.abs(plusDI - minusDI) / (plusDI + minusDI)) * 100;
+  
   return dx;
 }
 
@@ -181,7 +205,7 @@ serve(async (req) => {
     for (const symbol of pairs) {
       for (const timeframe of timeframes) {
         try {
-          // Get OHLCV data
+          // Get OHLCV data - need enough for indicators
           const count = timeframe === 'D1' ? 50 : timeframe === 'H4' ? 100 : timeframe === 'H1' ? 200 : 100;
           
           const { data: bars, error } = await supabase
@@ -193,6 +217,13 @@ serve(async (req) => {
 
           if (error || !bars || bars.length === 0) {
             console.log(`[CalculateIndicators] No data for ${symbol} ${timeframe}`);
+            continue;
+          }
+          
+          // Skip if not enough data for calculations
+          const minRequired = timeframe === 'D1' ? 30 : 50;
+          if (bars.length < minRequired) {
+            console.log(`[CalculateIndicators] Insufficient data for ${symbol} ${timeframe}: ${bars.length}/${minRequired} bars`);
             continue;
           }
 
