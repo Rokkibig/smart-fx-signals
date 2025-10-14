@@ -34,21 +34,33 @@ serve(async (req) => {
 
     const pairs = ['EUR/USD', 'GBP/USD', 'USD/JPY', 'USD/CHF', 'AUD/USD', 'NZD/USD', 'USD/CAD'];
     const results = [];
+    let isInitialLoad = false;
 
     console.log('[FetchOHLCV] Starting OHLCV fetch');
+
+    // Check if we have any data - if not, this is initial load
+    const { count } = await supabase
+      .from('forex_ohlcv')
+      .select('*', { count: 'exact', head: true });
+    
+    isInitialLoad = !count || count === 0;
+    console.log(`[FetchOHLCV] Mode: ${isInitialLoad ? 'INITIAL LOAD' : 'UPDATE'}`);
 
     for (const symbol of pairs) {
       for (const [timeframe, config] of Object.entries(TIMEFRAME_CONFIG)) {
         try {
-          console.log(`[FetchOHLCV] Fetching ${symbol} ${timeframe}`);
+          // For updates, only fetch 2 most recent bars
+          const fetchCount = isInitialLoad ? config.count : 2;
+          
+          console.log(`[FetchOHLCV] Fetching ${symbol} ${timeframe} (${fetchCount} bars)`);
 
-          // Fetch time series from Twelve Data
-          const url = `https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(symbol)}&interval=${config.interval}&outputsize=${config.count}&apikey=${encodeURIComponent(TWELVE_DATA_KEY)}`;
+          const url = `https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(symbol)}&interval=${config.interval}&outputsize=${fetchCount}&apikey=${encodeURIComponent(TWELVE_DATA_KEY)}`;
           const response = await fetch(url);
 
           if (!response.ok) {
             console.error(`[FetchOHLCV] API error: ${response.status}`);
             results.push({ symbol, timeframe, status: 'error', message: `API ${response.status}` });
+            await new Promise(resolve => setTimeout(resolve, 1000)); // Longer delay on error
             continue;
           }
 
@@ -57,12 +69,14 @@ serve(async (req) => {
           if (data.code === 429) {
             console.error('[FetchOHLCV] Rate limit hit');
             results.push({ symbol, timeframe, status: 'rate_limit' });
+            await new Promise(resolve => setTimeout(resolve, 2000)); // Long delay on rate limit
             continue;
           }
 
           if (!data.values || !Array.isArray(data.values)) {
             console.error(`[FetchOHLCV] Invalid data for ${symbol} ${timeframe}`);
             results.push({ symbol, timeframe, status: 'invalid_data' });
+            await new Promise(resolve => setTimeout(resolve, 1000));
             continue;
           }
 
@@ -94,8 +108,9 @@ serve(async (req) => {
             results.push({ symbol, timeframe, status: 'success', bars: bars.length });
           }
 
-          // Delay to avoid rate limits
-          await new Promise(resolve => setTimeout(resolve, 300));
+          // Smart delay based on mode
+          const delay = isInitialLoad ? 800 : 500; // Longer delay for initial load
+          await new Promise(resolve => setTimeout(resolve, delay));
 
         } catch (error) {
           console.error(`[FetchOHLCV] Error for ${symbol} ${timeframe}:`, error);
@@ -105,6 +120,7 @@ serve(async (req) => {
             status: 'error', 
             message: error instanceof Error ? error.message : 'Unknown' 
           });
+          await new Promise(resolve => setTimeout(resolve, 1000));
         }
       }
     }
@@ -112,11 +128,12 @@ serve(async (req) => {
     const successCount = results.filter(r => r.status === 'success').length;
     const failCount = results.filter(r => r.status !== 'success').length;
 
-    console.log(`[FetchOHLCV] Complete: ${successCount} success, ${failCount} failed`);
+    console.log(`[FetchOHLCV] Complete: ${successCount} success, ${failCount} failed (${isInitialLoad ? 'initial load' : 'update'})`);
 
     return new Response(
       JSON.stringify({ 
         success: true,
+        mode: isInitialLoad ? 'initial' : 'update',
         fetched: successCount,
         failed: failCount,
         results 

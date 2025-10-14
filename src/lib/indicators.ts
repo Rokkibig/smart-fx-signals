@@ -226,9 +226,13 @@ export const fetchOHLCV = async (): Promise<{ success: boolean; message: string 
     }
 
     console.log('[Indicators] OHLCV fetch result:', data);
+    
+    const mode = data.mode === 'initial' ? 'Перша загрузка' : 'Оновлення';
+    const message = `${mode}: ${data.fetched} датасетів${data.failed > 0 ? ` (помилок: ${data.failed})` : ''}`;
+    
     return { 
       success: true, 
-      message: `Завантажено ${data.fetched} датасетів` 
+      message 
     };
   } catch (error) {
     console.error('[Indicators] Exception calling fetch-ohlcv:', error);

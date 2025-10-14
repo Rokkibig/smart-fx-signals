@@ -154,9 +154,10 @@ const Index = () => {
             });
           }
         } else if (marketMode === "ranging" && features.M15) {
-          // RANGING MODE - Range trading signals
+          // RANGING MODE - Range trading signals ONLY
           signals = generateRangeSignals(price, features.M15, mode);
         }
+        // If no clear mode or no M15 data - no signals
 
         return {
           pair: symbol,
