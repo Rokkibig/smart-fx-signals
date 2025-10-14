@@ -5,8 +5,9 @@ import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { generateASCII, copyToClipboard } from "@/utils/asciiExport";
-import { Copy, RefreshCw } from "lucide-react";
+import { Copy, RefreshCw, Activity } from "lucide-react";
 import { getLatestPrices, updatePricesFromAPI } from "@/lib/forexDB";
+import { getFeaturesBySymbol, getTrendMatrix, calculateTrendStrength, getOverallTrend, fullUpdate } from "@/lib/indicators";
 import { useAuth } from "@/contexts/AuthContext";
 
 // Mock data for demo - replace with actual API calls
@@ -85,10 +86,10 @@ const Index = () => {
   const { toast } = useToast();
   const { user, signInWithGoogle, credits } = useAuth();
 
-  // Fetch data from database
+  // Fetch data from database with real indicators
   const fetchRealData = async () => {
     setIsLoading(true);
-    console.log("🔄 Fetching Forex data from database...");
+    console.log("🔄 Fetching Forex data with indicators...");
     
     try {
       const symbols = ["EUR/USD", "GBP/USD", "USD/JPY", "USD/CHF", "AUD/USD", "NZD/USD", "USD/CAD"];
@@ -98,7 +99,7 @@ const Index = () => {
       const dbPrices = await getLatestPrices(symbols);
       console.log("✅ DB prices:", dbPrices);
       
-      const realData = symbols.map((symbol) => {
+      const realData = await Promise.all(symbols.map(async (symbol) => {
         const priceData = dbPrices[symbol];
         
         if (!priceData) {
@@ -106,42 +107,48 @@ const Index = () => {
           return null;
         }
 
-        // Generate trend matrix based on real data
-        const trends: Array<"↗" | "↘" | "→"> = ["↗", "↘", "→"];
-        const trend_matrix = {
-          D1: trends[Math.floor(Math.random() * trends.length)],
-          H4: trends[Math.floor(Math.random() * trends.length)],
-          H1: trends[Math.floor(Math.random() * trends.length)],
-          M15: trends[Math.floor(Math.random() * trends.length)],
-        };
+        // Get real features from database
+        const features = await getFeaturesBySymbol(symbol);
+        console.log(`📊 Features for ${symbol}:`, features);
+        
+        // Get trend matrix from real indicators
+        const trend_matrix = getTrendMatrix(features);
+        const overallTrend = getOverallTrend(trend_matrix);
+        const strength = calculateTrendStrength(trend_matrix);
 
         const price = priceData.price;
         const signals = [];
 
-        // Always generate Rule-Only signal
-        const isBuy = Math.random() > 0.5;
-        signals.push({
-          type: isBuy ? "buy_stop" : "sell_stop",
-          entry: isBuy ? price + 0.002 : price - 0.002,
-          sl: isBuy ? price - 0.001 : price + 0.001,
-          tp1: isBuy ? price + 0.004 : price - 0.004,
-          tp2: isBuy ? price + 0.006 : price - 0.006,
-          prob: Math.floor(Math.random() * 15) + 50, // 50-65%
-          source: "Rule-Only",
-          notes: Math.random() > 0.5 ? "Ретест нижньої межі діапазону, ADX>20" : undefined,
-        });
-
-        // For hybrid mode add AI signal with higher probability
-        if (mode === "hybrid" && Math.random() > 0.3) {
+        // Generate signals based on real trends
+        const isBuy = overallTrend === '↗';
+        const hasTrend = overallTrend !== '→';
+        
+        if (hasTrend) {
           signals.push({
             type: isBuy ? "buy_stop" : "sell_stop",
             entry: isBuy ? price + 0.002 : price - 0.002,
             sl: isBuy ? price - 0.001 : price + 0.001,
             tp1: isBuy ? price + 0.004 : price - 0.004,
             tp2: isBuy ? price + 0.006 : price - 0.006,
-            prob: Math.floor(Math.random() * 15) + 60, // 60-75%
+            prob: Math.min(50 + strength, 75),
+            source: "Rule-Only",
+            notes: features.M15 
+              ? `ADX: ${features.M15.adx_14?.toFixed(1)}, RSI: ${features.M15.rsi_14?.toFixed(1)}`
+              : undefined,
+          });
+        }
+
+        // For hybrid mode add AI signal
+        if (mode === "hybrid" && hasTrend) {
+          signals.push({
+            type: isBuy ? "buy_stop" : "sell_stop",
+            entry: isBuy ? price + 0.002 : price - 0.002,
+            sl: isBuy ? price - 0.001 : price + 0.001,
+            tp1: isBuy ? price + 0.004 : price - 0.004,
+            tp2: isBuy ? price + 0.006 : price - 0.006,
+            prob: Math.min(60 + strength, 85),
             source: "Rule+AI",
-            notes: "Тренд узгоджений D1/H4, ADX > 20",
+            notes: `Тренд узгоджений ${Object.values(trend_matrix).filter(t => t === overallTrend).length}/4 ТФ`,
           });
         }
 
@@ -149,35 +156,29 @@ const Index = () => {
           pair: symbol,
           price,
           trend_matrix,
-          trend: trends[Math.floor(Math.random() * trends.length)],
-          strength: Math.floor(Math.random() * 40) + 40,
+          trend: overallTrend,
+          strength,
           signals,
         };
-      });
+      }));
 
       const validData = realData.filter(d => d !== null);
       console.log(`✅ Valid data received: ${validData.length}/${symbols.length} pairs`);
       
       if (validData.length > 0) {
         setPairData(validData);
-        
-        // Show source in toast
-        const sourceName = Object.values(dbPrices)[0]?.source === 'twelve_data' 
-          ? 'Twelve Data API' 
-          : 'база даних';
-        
         toast({
           title: "Дані оновлено",
-          description: `Оновлено дані для ${validData.length} пар з ${sourceName}`,
+          description: `Оновлено ${validData.length} пар з реальними індикаторами`,
         });
       } else {
         throw new Error("No valid data in database");
       }
     } catch (error) {
-      console.error("❌ Error fetching data from DB:", error);
+      console.error("❌ Error fetching data:", error);
       toast({
         title: "Використовуються демо-дані",
-        description: "База даних порожня. Натисніть 'Оновити дані' для завантаження реальних цін.",
+        description: "База даних порожня. Натисніть 'Завантажити історію' для початку.",
         variant: "default",
       });
       setPairData(generateMockData());
@@ -187,22 +188,23 @@ const Index = () => {
     }
   };
 
-  // Update prices from Twelve Data API
-  const handleUpdateFromAPI = async () => {
+  // Full update: fetch OHLCV + calculate indicators
+  const handleFullUpdate = async () => {
     setIsLoading(true);
+    setAiActive(true);
     toast({
-      title: "Оновлення цін...",
-      description: "Завантажуємо дані з Twelve Data API",
+      title: "🔄 Повне оновлення...",
+      description: "Завантаження історичних даних + обчислення індикаторів",
     });
 
-    const result = await updatePricesFromAPI();
+    const result = await fullUpdate();
     
     if (result.success) {
       toast({
-        title: "✅ Ціни оновлено",
+        title: "✅ Індикатори оновлено",
         description: result.message,
       });
-      // Refresh display
+      // Refresh display with new indicators
       await fetchRealData();
     } else {
       toast({
@@ -213,6 +215,7 @@ const Index = () => {
     }
     
     setIsLoading(false);
+    setAiActive(false);
   };
 
   const handleManualRefresh = () => {
@@ -304,14 +307,14 @@ const Index = () => {
             </div>
             <div className="flex gap-2">
               <Button 
-                variant="outline" 
+                variant="default" 
                 size="sm"
-                onClick={handleUpdateFromAPI}
+                onClick={handleFullUpdate}
                 disabled={isLoading}
                 className="gap-2"
               >
-                <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-                {isLoading ? 'Оновлення...' : 'Оновити дані'}
+                <Activity className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+                {isLoading ? 'Оновлення...' : 'Завантажити історію'}
               </Button>
               <Button 
                 variant="outline" 
