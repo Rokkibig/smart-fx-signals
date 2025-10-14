@@ -6,6 +6,58 @@ interface ForexProvider {
   priority: number; // Lower = try first
 }
 
+// Simple in-memory cache to avoid hitting rate limits
+const cache = new Map<string, { data: any; timestamp: number }>();
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+// Twelve Data - real-time Forex with free tier (800 requests/day)
+const TWELVE_DATA_KEY = import.meta.env.VITE_TWELVE_DATA_API_KEY as string | undefined;
+const twelveDataProvider: ForexProvider = {
+  name: 'TwelveData',
+  priority: 0, // Highest priority
+  getTick: async (symbol: string) => {
+    if (!TWELVE_DATA_KEY) throw new Error('Twelve Data API key missing');
+    
+    // Check cache first to avoid wasting API calls
+    const cacheKey = `twelve_${symbol}`;
+    const cached = cache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+      console.log(`[TwelveData] Using cached data for ${symbol}`);
+      return cached.data;
+    }
+    
+    // Convert EUR/USD -> EUR/USD format
+    const response = await fetch(
+      `https://api.twelvedata.com/quote?symbol=${encodeURIComponent(symbol)}&apikey=${encodeURIComponent(TWELVE_DATA_KEY)}`
+    );
+    
+    if (!response.ok) {
+      if (response.status === 429) throw new Error('Rate limit exceeded');
+      throw new Error('Twelve Data API failed');
+    }
+    
+    const data = await response.json();
+    if (data.code === 429) throw new Error('Rate limit exceeded');
+    if (!data.close) throw new Error('Twelve Data invalid response');
+    
+    const price = Number(data.close);
+    const result = {
+      symbol,
+      time: new Date().toISOString(),
+      bid: price * 0.9999,
+      ask: price * 1.0001,
+      last: price,
+      volume: Number(data.volume || 0),
+      spread: price * 0.0002,
+    };
+    
+    // Cache the result
+    cache.set(cacheKey, { data: result, timestamp: Date.now() });
+    
+    return result;
+  },
+};
+
 // Financial Modeling Prep - requires API key
 const FMP_KEY = import.meta.env.VITE_FMP_API_KEY as string | undefined;
 const fmpProvider: ForexProvider = {
@@ -141,10 +193,12 @@ const mockProvider: ForexProvider = {
 };
 
 const providers: ForexProvider[] = [
-  // Free providers first
+  // Twelve Data first - real-time with caching
+  ...(TWELVE_DATA_KEY ? [twelveDataProvider] : []),
+  // Free providers as fallback
   frankfurterProvider,
   erApiProvider,
-  // Keyed providers if configured
+  // Other keyed providers if configured
   ...(FMP_KEY ? [fmpProvider] : []),
   // Keep old provider as last attempt
   exchangeRateProvider,
