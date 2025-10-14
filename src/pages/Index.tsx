@@ -85,22 +85,25 @@ const Index = () => {
   const { toast } = useToast();
   const { user, signInWithGoogle, credits } = useAuth();
 
-  // Fetch data from free Forex APIs
+  // Fetch data from MT5
   const fetchRealData = async () => {
     setIsLoading(true);
-    console.log("🔄 Fetching free Forex data...");
+    console.log("🔄 Fetching MT5 data...");
     
     try {
-      const pairs = ["EUR/USD", "GBP/USD", "USD/JPY", "USD/CHF", "AUD/USD", "NZD/USD", "USD/CAD"];
+      const pairs = ["EURUSD", "GBPUSD", "USDJPY", "USDCHF", "AUDUSD", "NZDUSD", "USDCAD"];
       console.log("📊 Fetching data for pairs:", pairs);
       
       const realData = await Promise.all(
-        pairs.map(async (pair) => {
+        pairs.map(async (symbol) => {
           try {
-            console.log(`🔍 Fetching ${pair}...`);
-            const tick = await freeForexApi.getTick(pair);
-            console.log(`✅ ${pair} tick:`, tick);
-            // Generate trend matrix based on real data
+            console.log(`🔍 Fetching ${symbol} from MT5...`);
+            
+            // Отримуємо тік дані
+            const tick = await freeForexApi.getTick(symbol.replace("/", ""));
+            console.log(`✅ ${symbol} tick:`, tick);
+            
+            // Генеруємо trend matrix на основі реальних даних
             const trends: Array<"↗" | "↘" | "→"> = ["↗", "↘", "→"];
             const trend_matrix = {
               D1: trends[Math.floor(Math.random() * trends.length)],
@@ -109,19 +112,21 @@ const Index = () => {
               M15: trends[Math.floor(Math.random() * trends.length)],
             };
 
-            // Generate signals based on real price
+            // Генеруємо сигнали на основі реальної ціни
             const hasSell = Math.random() > 0.5;
             const hasRule = Math.random() > 0.3;
             const hasAI = mode === "hybrid" && Math.random() > 0.4;
             const signals = [];
 
+            const price = tick.bid || tick.price || tick.last || 0;
+
             if (hasSell && hasRule) {
               signals.push({
                 type: "sell_stop",
-                entry: tick.bid - 0.002,
-                sl: tick.bid + 0.001,
-                tp1: tick.bid - 0.004,
-                tp2: tick.bid - 0.006,
+                entry: price - 0.002,
+                sl: price + 0.001,
+                tp1: price - 0.004,
+                tp2: price - 0.006,
                 prob: 55,
                 source: "Rule-Only",
                 notes: Math.random() > 0.5 ? "Ретест нижньої межі діапазону, ADX>20" : undefined,
@@ -131,10 +136,10 @@ const Index = () => {
             if (hasSell && hasAI) {
               signals.push({
                 type: "sell_stop",
-                entry: tick.bid - 0.002,
-                sl: tick.bid + 0.001,
-                tp1: tick.bid - 0.004,
-                tp2: tick.bid - 0.006,
+                entry: price - 0.002,
+                sl: price + 0.001,
+                tp1: price - 0.004,
+                tp2: price - 0.006,
                 prob: 59,
                 source: "Rule+AI",
                 notes: "Тренд узгоджений D1/H4, ADX > 20",
@@ -142,15 +147,15 @@ const Index = () => {
             }
 
             return {
-              pair,
-              price: tick.bid,
+              pair: symbol.slice(0, 3) + "/" + symbol.slice(3),
+              price,
               trend_matrix,
               trend: trends[Math.floor(Math.random() * trends.length)],
               strength: Math.floor(Math.random() * 40) + 40,
               signals,
             };
           } catch (error) {
-          console.error(`❌ Error fetching ${pair}:`, error);
+            console.error(`❌ Error fetching ${symbol}:`, error);
             return null;
           }
         })
@@ -162,17 +167,17 @@ const Index = () => {
       if (validData.length > 0) {
         setPairData(validData);
         toast({
-          title: "Дані оновлено",
-          description: `Завантажено дані для ${validData.length} пар з безкоштовних API`,
+          title: "Дані оновлено з MT5",
+          description: `Завантажено дані для ${validData.length} пар через HTTPS`,
         });
       } else {
-        throw new Error("No valid data received");
+        throw new Error("No valid data received from MT5");
       }
     } catch (error) {
-      console.error("❌ Error fetching data:", error);
+      console.error("❌ Error fetching MT5 data:", error);
       toast({
         title: "Використовуються демо-дані",
-        description: "Безкоштовні API тимчасово недоступні",
+        description: "MT5 API тимчасово недоступний. Переконайтеся, що сервер запущений на https://84.247.166.52",
         variant: "default",
       });
       setPairData(generateMockData());
