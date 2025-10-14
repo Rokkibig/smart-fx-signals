@@ -62,7 +62,7 @@ serve(async (req) => {
     
     const pairData = validationResult.data;
 
-    // Check user credits
+    // Check and deduct credit FIRST (with optimistic locking to prevent race conditions)
     const { data: credits, error: creditsError } = await supabase
       .from('user_credits')
       .select('credits_balance, total_spent')
@@ -75,6 +75,28 @@ serve(async (req) => {
         { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    // Deduct credit BEFORE AI processing to prevent race conditions
+    const { data: deductResult, error: deductError } = await supabase
+      .from('user_credits')
+      .update({ 
+        credits_balance: credits.credits_balance - 1,
+        total_spent: (credits.total_spent || 0) + 1
+      })
+      .eq('user_id', user.id)
+      .eq('credits_balance', credits.credits_balance) // Optimistic lock - only succeeds if balance unchanged
+      .select()
+      .single();
+
+    if (deductError || !deductResult) {
+      console.error('Credit deduction failed (likely concurrent request):', { requestId, error: deductError });
+      return new Response(
+        JSON.stringify({ error: 'Credit deduction failed. Please try again.' }),
+        { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const newBalance = deductResult.credits_balance;
 
     const systemPrompt = `Ти експерт-аналітик Forex ринку. Аналізуй валютні пари та надавай конкретні торгові рекомендації.
 
@@ -90,7 +112,9 @@ serve(async (req) => {
     let analysis = '';
     let usedProvider = '';
 
-    // Priority 1: Lovable AI (free quota)
+    // Wrap AI calls in try-catch to refund credit if they fail
+    try {
+      // Priority 1: Lovable AI (free quota)
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (LOVABLE_API_KEY) {
       try {
@@ -203,28 +227,35 @@ serve(async (req) => {
       console.log('Claude Sonnet 4.5 currently disabled (placeholder)');
     }
 
-    // If all providers failed
-    if (!analysis) {
-      console.error('All AI providers failed:', { requestId });
-      return new Response(
-        JSON.stringify({ 
-          error: 'AI analysis service temporarily unavailable. Please try again later.',
-          request_id: requestId
-        }),
-        { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      // If all providers failed
+      if (!analysis) {
+        console.error('All AI providers failed:', { requestId });
+        // Refund the credit since AI failed
+        await supabase
+          .from('user_credits')
+          .update({ credits_balance: credits.credits_balance })
+          .eq('user_id', user.id);
+        
+        return new Response(
+          JSON.stringify({ 
+            error: 'AI analysis service temporarily unavailable. Please try again later.',
+            request_id: requestId
+          }),
+          { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      console.log(`Analysis completed successfully using: ${usedProvider}`);
+    } catch (aiError) {
+      // Refund the credit if AI processing failed
+      console.error('AI processing error, refunding credit:', { requestId, error: aiError });
+      await supabase
+        .from('user_credits')
+        .update({ credits_balance: credits.credits_balance })
+        .eq('user_id', user.id);
+      
+      throw aiError; // Re-throw to be caught by outer catch
     }
-
-    console.log(`Analysis completed successfully using: ${usedProvider}`);
-
-    // Deduct 1 credit
-    await supabase
-      .from('user_credits')
-      .update({ 
-        credits_balance: credits.credits_balance - 1,
-        total_spent: (credits.total_spent || 0) + 1
-      })
-      .eq('user_id', user.id);
 
     // Log the request using service role for INSERT (bypasses RLS)
     const supabaseAdmin = createClient(
@@ -245,7 +276,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         analysis,
-        credits_remaining: credits.credits_balance - 1
+        credits_remaining: newBalance
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
