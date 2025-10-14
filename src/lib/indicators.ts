@@ -107,13 +107,23 @@ export const getOverallTrend = (trendMatrix: TrendMatrix): "↗" | "↘" | "→"
 
 // Determine market mode (trending vs ranging)
 export const getMarketMode = (features: Record<string, ForexFeatures>): "trending" | "ranging" => {
-  // Strict rule: market is trending ONLY if BOTH M15 and H1 ADX are above threshold
-  const THRESHOLD = 15;
-  const m15Adx = features.M15?.adx_14 ?? 0;
   const h1Adx = features.H1?.adx_14 ?? 0;
-
-  // If either timeframe shows weak trend (ADX < THRESHOLD), treat as ranging
-  return (m15Adx >= THRESHOLD && h1Adx >= THRESHOLD) ? "trending" : "ranging";
+  
+  // Strong trend: H1 ADX >= 20
+  if (h1Adx >= 20) return "trending";
+  
+  // Moderate trend: H1 ADX >= 15 AND at least 2 timeframes aligned
+  if (h1Adx >= 15) {
+    const trendMatrix = getTrendMatrix(features);
+    const directions = [trendMatrix.D1, trendMatrix.H4, trendMatrix.H1, trendMatrix.M15];
+    const upCount = directions.filter(d => d === "↗").length;
+    const downCount = directions.filter(d => d === "↘").length;
+    
+    // If at least 2 TFs agree on direction, it's trending
+    if (upCount >= 2 || downCount >= 2) return "trending";
+  }
+  
+  return "ranging";
 };
 
 // Generate range trading signals
