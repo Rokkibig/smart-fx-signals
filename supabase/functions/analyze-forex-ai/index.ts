@@ -169,40 +169,10 @@ serve(async (req) => {
       }
     }
 
-    // Priority 4: Claude (user's key)
+    // Claude Sonnet 4.5 - заглушка (вимкнено)
+    // TODO: Додати Claude Sonnet 4.5 пізніше
     if (!analysis) {
-      const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
-      if (ANTHROPIC_API_KEY) {
-        try {
-          console.log('Trying Claude API...');
-          const aiResponse = await fetch('https://api.anthropic.com/v1/messages', {
-            method: 'POST',
-            headers: {
-              'x-api-key': ANTHROPIC_API_KEY,
-              'anthropic-version': '2023-06-01',
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              model: 'claude-sonnet-4-5',
-              max_tokens: 1024,
-              system: systemPrompt,
-              messages: [{ role: 'user', content: userMessage }],
-            }),
-          });
-
-          if (aiResponse.ok) {
-            const aiData = await aiResponse.json();
-            analysis = aiData.content[0].text;
-            usedProvider = 'Claude Sonnet 4.5';
-            console.log('✓ Analysis completed with Claude');
-          } else {
-            const errorText = await aiResponse.text();
-            console.error('Claude API error:', aiResponse.status, errorText);
-          }
-        } catch (error) {
-          console.error('Claude failed:', error);
-        }
-      }
+      console.log('Claude Sonnet 4.5 currently disabled (placeholder)');
     }
 
     // If all providers failed
