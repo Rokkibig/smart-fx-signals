@@ -21,6 +21,7 @@ export interface ForexFeatures {
   round_levels: number[];
   session: string;
   trend_direction: "↗" | "↘" | "→";
+  market_mode?: "trending" | "ranging"; // New field
 }
 
 export interface TrendMatrix {
@@ -102,6 +103,116 @@ export const getOverallTrend = (trendMatrix: TrendMatrix): "↗" | "↘" | "→"
   if (upCount > downCount && upCount >= 2) return '↗';
   if (downCount > upCount && downCount >= 2) return '↘';
   return '→';
+};
+
+// Determine market mode (trending vs ranging)
+export const getMarketMode = (features: Record<string, ForexFeatures>): "trending" | "ranging" => {
+  // Check M15 and H1 ADX to determine if market is trending
+  const m15Adx = features.M15?.adx_14 || 0;
+  const h1Adx = features.H1?.adx_14 || 0;
+  const avgAdx = (m15Adx + h1Adx) / 2;
+  
+  // If average ADX < 15, market is ranging
+  return avgAdx < 15 ? "ranging" : "trending";
+};
+
+// Generate range trading signals
+export const generateRangeSignals = (
+  price: number,
+  features: ForexFeatures,
+  mode: "rule" | "hybrid"
+): Array<{
+  type: string;
+  entry: number;
+  sl: number;
+  tp1: number;
+  tp2?: number;
+  prob: number;
+  source: string;
+  notes?: string;
+}> => {
+  const signals = [];
+  
+  if (!features) return signals;
+  
+  const { pivot_s1, pivot_s2, pivot_r1, pivot_r2, pivot_pp, rsi_14 } = features;
+  const atr = features.atr_14 || 0.0001;
+  
+  // Check if price near support or resistance
+  const nearS1 = Math.abs(price - pivot_s1) < atr * 0.5;
+  const nearS2 = Math.abs(price - pivot_s2) < atr * 0.5;
+  const nearR1 = Math.abs(price - pivot_r1) < atr * 0.5;
+  const nearR2 = Math.abs(price - pivot_r2) < atr * 0.5;
+  const nearPP = Math.abs(price - pivot_pp) < atr * 0.5;
+  
+  // Buy from support
+  if ((nearS1 || nearS2) && rsi_14 < 40) {
+    const support = nearS1 ? pivot_s1 : pivot_s2;
+    signals.push({
+      type: "buy_limit",
+      entry: support,
+      sl: support - atr * 1.5,
+      tp1: pivot_pp,
+      tp2: pivot_r1,
+      prob: nearS2 ? 65 : 60,
+      source: "Rule-Only",
+      notes: `Range: Buy від підтримки S${nearS2 ? '2' : '1'}, RSI: ${rsi_14.toFixed(1)}`
+    });
+  }
+  
+  // Sell from resistance
+  if ((nearR1 || nearR2) && rsi_14 > 60) {
+    const resistance = nearR1 ? pivot_r1 : pivot_r2;
+    signals.push({
+      type: "sell_limit",
+      entry: resistance,
+      sl: resistance + atr * 1.5,
+      tp1: pivot_pp,
+      tp2: pivot_s1,
+      prob: nearR2 ? 65 : 60,
+      source: "Rule-Only",
+      notes: `Range: Sell від опору R${nearR2 ? '2' : '1'}, RSI: ${rsi_14.toFixed(1)}`
+    });
+  }
+  
+  // Buy from pivot point (mean reversion)
+  if (nearPP && rsi_14 < 50 && price < pivot_pp) {
+    signals.push({
+      type: "buy_limit",
+      entry: pivot_pp - atr * 0.3,
+      sl: pivot_pp - atr * 1.5,
+      tp1: pivot_r1,
+      prob: 55,
+      source: "Rule-Only",
+      notes: `Range: Повернення до PP, RSI: ${rsi_14.toFixed(1)}`
+    });
+  }
+  
+  // Sell from pivot point
+  if (nearPP && rsi_14 > 50 && price > pivot_pp) {
+    signals.push({
+      type: "sell_limit",
+      entry: pivot_pp + atr * 0.3,
+      sl: pivot_pp + atr * 1.5,
+      tp1: pivot_s1,
+      prob: 55,
+      source: "Rule-Only",
+      notes: `Range: Повернення до PP, RSI: ${rsi_14.toFixed(1)}`
+    });
+  }
+  
+  // Add hybrid signals if mode is hybrid
+  if (mode === "hybrid" && signals.length > 0) {
+    const baseSignal = signals[0];
+    signals.push({
+      ...baseSignal,
+      prob: baseSignal.prob + 10,
+      source: "Rule+AI",
+      notes: `${baseSignal.notes} + AI підтвердження`
+    });
+  }
+  
+  return signals;
 };
 
 // Fetch historical OHLCV data

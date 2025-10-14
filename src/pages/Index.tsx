@@ -7,7 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { generateASCII, copyToClipboard } from "@/utils/asciiExport";
 import { Copy, RefreshCw, Activity } from "lucide-react";
 import { getLatestPrices, updatePricesFromAPI } from "@/lib/forexDB";
-import { getFeaturesBySymbol, getTrendMatrix, calculateTrendStrength, getOverallTrend, fullUpdate } from "@/lib/indicators";
+import { getFeaturesBySymbol, getTrendMatrix, calculateTrendStrength, getOverallTrend, fullUpdate, getMarketMode, generateRangeSignals } from "@/lib/indicators";
 import { useAuth } from "@/contexts/AuthContext";
 
 // Mock data for demo - replace with actual API calls
@@ -115,15 +115,18 @@ const Index = () => {
         const trend_matrix = getTrendMatrix(features);
         const overallTrend = getOverallTrend(trend_matrix);
         const strength = calculateTrendStrength(trend_matrix);
+        const marketMode = getMarketMode(features);
 
         const price = priceData.price;
-        const signals = [];
+        let signals = [];
 
-        // Generate signals based on real trends
-        const isBuy = overallTrend === '↗';
-        const hasTrend = overallTrend !== '→';
+        // Determine if market is trending or ranging
+        const hasTrend = overallTrend !== '→' && marketMode === "trending";
         
         if (hasTrend) {
+          // TRENDING MODE - Trend following signals
+          const isBuy = overallTrend === '↗';
+          
           signals.push({
             type: isBuy ? "buy_stop" : "sell_stop",
             entry: isBuy ? price + 0.002 : price - 0.002,
@@ -133,23 +136,26 @@ const Index = () => {
             prob: Math.min(50 + strength, 75),
             source: "Rule-Only",
             notes: features.M15 
-              ? `ADX: ${features.M15.adx_14?.toFixed(1)}, RSI: ${features.M15.rsi_14?.toFixed(1)}`
+              ? `Тренд: ADX ${features.M15.adx_14?.toFixed(1)}, RSI ${features.M15.rsi_14?.toFixed(1)}`
               : undefined,
           });
-        }
 
-        // For hybrid mode add AI signal
-        if (mode === "hybrid" && hasTrend) {
-          signals.push({
-            type: isBuy ? "buy_stop" : "sell_stop",
-            entry: isBuy ? price + 0.002 : price - 0.002,
-            sl: isBuy ? price - 0.001 : price + 0.001,
-            tp1: isBuy ? price + 0.004 : price - 0.004,
-            tp2: isBuy ? price + 0.006 : price - 0.006,
-            prob: Math.min(60 + strength, 85),
-            source: "Rule+AI",
-            notes: `Тренд узгоджений ${Object.values(trend_matrix).filter(t => t === overallTrend).length}/4 ТФ`,
-          });
+          // For hybrid mode add AI signal
+          if (mode === "hybrid") {
+            signals.push({
+              type: isBuy ? "buy_stop" : "sell_stop",
+              entry: isBuy ? price + 0.002 : price - 0.002,
+              sl: isBuy ? price - 0.001 : price + 0.001,
+              tp1: isBuy ? price + 0.004 : price - 0.004,
+              tp2: isBuy ? price + 0.006 : price - 0.006,
+              prob: Math.min(60 + strength, 85),
+              source: "Rule+AI",
+              notes: `Тренд узгоджений ${Object.values(trend_matrix).filter(t => t === overallTrend).length}/4 ТФ`,
+            });
+          }
+        } else if (marketMode === "ranging" && features.M15) {
+          // RANGING MODE - Range trading signals
+          signals = generateRangeSignals(price, features.M15, mode);
         }
 
         return {
