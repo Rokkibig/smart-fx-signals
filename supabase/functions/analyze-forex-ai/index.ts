@@ -194,8 +194,13 @@ serve(async (req) => {
       })
       .eq('user_id', user.id);
 
-    // Log the request
-    await supabase
+    // Log the request using service role for INSERT (bypasses RLS)
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+    
+    await supabaseAdmin
       .from('ai_requests_log')
       .insert({
         user_id: user.id,
