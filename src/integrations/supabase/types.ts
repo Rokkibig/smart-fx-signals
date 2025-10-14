@@ -44,6 +44,120 @@ export type Database = {
         }
         Relationships: []
       }
+      forex_features: {
+        Row: {
+          adx_14: number | null
+          atr_14: number | null
+          calculated_at: string
+          created_at: string | null
+          ema_20: number | null
+          ema_200: number | null
+          ema_50: number | null
+          id: string
+          last_close: number
+          pivot_pp: number | null
+          pivot_r1: number | null
+          pivot_r2: number | null
+          pivot_s1: number | null
+          pivot_s2: number | null
+          round_levels: Json | null
+          rsi_14: number | null
+          session: string | null
+          swing_highs: Json | null
+          swing_lows: Json | null
+          symbol: string
+          timeframe: string
+          trend_direction: string | null
+        }
+        Insert: {
+          adx_14?: number | null
+          atr_14?: number | null
+          calculated_at?: string
+          created_at?: string | null
+          ema_20?: number | null
+          ema_200?: number | null
+          ema_50?: number | null
+          id?: string
+          last_close: number
+          pivot_pp?: number | null
+          pivot_r1?: number | null
+          pivot_r2?: number | null
+          pivot_s1?: number | null
+          pivot_s2?: number | null
+          round_levels?: Json | null
+          rsi_14?: number | null
+          session?: string | null
+          swing_highs?: Json | null
+          swing_lows?: Json | null
+          symbol: string
+          timeframe: string
+          trend_direction?: string | null
+        }
+        Update: {
+          adx_14?: number | null
+          atr_14?: number | null
+          calculated_at?: string
+          created_at?: string | null
+          ema_20?: number | null
+          ema_200?: number | null
+          ema_50?: number | null
+          id?: string
+          last_close?: number
+          pivot_pp?: number | null
+          pivot_r1?: number | null
+          pivot_r2?: number | null
+          pivot_s1?: number | null
+          pivot_s2?: number | null
+          round_levels?: Json | null
+          rsi_14?: number | null
+          session?: string | null
+          swing_highs?: Json | null
+          swing_lows?: Json | null
+          symbol?: string
+          timeframe?: string
+          trend_direction?: string | null
+        }
+        Relationships: []
+      }
+      forex_ohlcv: {
+        Row: {
+          bar_timestamp: string
+          close: number
+          created_at: string | null
+          high: number
+          id: string
+          low: number
+          open: number
+          symbol: string
+          timeframe: string
+          volume: number | null
+        }
+        Insert: {
+          bar_timestamp: string
+          close: number
+          created_at?: string | null
+          high: number
+          id?: string
+          low: number
+          open: number
+          symbol: string
+          timeframe: string
+          volume?: number | null
+        }
+        Update: {
+          bar_timestamp?: string
+          close?: number
+          created_at?: string | null
+          high?: number
+          id?: string
+          low?: number
+          open?: number
+          symbol?: string
+          timeframe?: string
+          volume?: number | null
+        }
+        Relationships: []
+      }
       forex_prices: {
         Row: {
           ask: number | null
@@ -151,6 +265,31 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_latest_features: {
+        Args: { p_symbol: string; p_timeframe: string }
+        Returns: {
+          adx_14: number
+          atr_14: number
+          calculated_at: string
+          ema_20: number
+          ema_200: number
+          ema_50: number
+          last_close: number
+          pivot_pp: number
+          pivot_r1: number
+          pivot_r2: number
+          pivot_s1: number
+          pivot_s2: number
+          round_levels: Json
+          rsi_14: number
+          session: string
+          swing_highs: Json
+          swing_lows: Json
+          symbol: string
+          timeframe: string
+          trend_direction: string
+        }[]
+      }
       get_latest_forex_price: {
         Args: { p_symbol: string }
         Returns: {
@@ -161,6 +300,17 @@ export type Database = {
           source: string
           spread: number
           symbol: string
+          volume: number
+        }[]
+      }
+      get_latest_ohlcv: {
+        Args: { p_count?: number; p_symbol: string; p_timeframe: string }
+        Returns: {
+          bar_timestamp: string
+          close: number
+          high: number
+          low: number
+          open: number
           volume: number
         }[]
       }
