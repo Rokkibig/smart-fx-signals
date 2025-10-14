@@ -1,1 +1,4 @@
 project_id = "gyiycegbniblicrbikji"
+
+[functions.update-forex-prices]
+verify_jwt = false

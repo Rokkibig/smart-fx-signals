@@ -44,6 +44,48 @@ export type Database = {
         }
         Relationships: []
       }
+      forex_prices: {
+        Row: {
+          ask: number | null
+          bid: number | null
+          created_at: string | null
+          id: string
+          price: number
+          price_timestamp: string
+          source: string | null
+          spread: number | null
+          symbol: string
+          updated_at: string | null
+          volume: number | null
+        }
+        Insert: {
+          ask?: number | null
+          bid?: number | null
+          created_at?: string | null
+          id?: string
+          price: number
+          price_timestamp?: string
+          source?: string | null
+          spread?: number | null
+          symbol: string
+          updated_at?: string | null
+          volume?: number | null
+        }
+        Update: {
+          ask?: number | null
+          bid?: number | null
+          created_at?: string | null
+          id?: string
+          price?: number
+          price_timestamp?: string
+          source?: string | null
+          spread?: number | null
+          symbol?: string
+          updated_at?: string | null
+          volume?: number | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -109,7 +151,31 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_latest_forex_price: {
+        Args: { p_symbol: string }
+        Returns: {
+          ask: number
+          bid: number
+          price: number
+          price_timestamp: string
+          source: string
+          spread: number
+          symbol: string
+          volume: number
+        }[]
+      }
+      upsert_forex_price: {
+        Args: {
+          p_ask?: number
+          p_bid?: number
+          p_price: number
+          p_source?: string
+          p_spread?: number
+          p_symbol: string
+          p_volume?: number
+        }
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { generateASCII, copyToClipboard } from "@/utils/asciiExport";
 import { Copy, RefreshCw } from "lucide-react";
-import { freeForexApi } from "@/lib/freeForexAPI";
+import { getLatestPrices, updatePricesFromAPI } from "@/lib/forexDB";
 import { useAuth } from "@/contexts/AuthContext";
 
 // Mock data for demo - replace with actual API calls
@@ -85,96 +85,99 @@ const Index = () => {
   const { toast } = useToast();
   const { user, signInWithGoogle, credits } = useAuth();
 
-  // Fetch data from Forex providers
+  // Fetch data from database
   const fetchRealData = async () => {
     setIsLoading(true);
-    console.log("🔄 Fetching Forex API data...");
+    console.log("🔄 Fetching Forex data from database...");
     
     try {
-      const pairs = ["EUR/USD", "GBP/USD", "USD/JPY", "USD/CHF", "AUD/USD", "NZD/USD", "USD/CAD"];
-      console.log("📊 Fetching data for pairs:", pairs);
+      const symbols = ["EUR/USD", "GBP/USD", "USD/JPY", "USD/CHF", "AUD/USD", "NZD/USD", "USD/CAD"];
+      console.log("📊 Fetching data for pairs:", symbols);
       
-      const realData = await Promise.all(
-        pairs.map(async (symbol) => {
-          try {
-            console.log(`🔍 Fetching ${symbol} from Forex API...`);
-            
-            // Отримуємо тік дані з Forex провайдерів
-            const tick = await freeForexApi.getTick(symbol);
-            console.log(`✅ ${symbol} tick:`, tick);
-            
-            // Генеруємо trend matrix на основі реальних даних
-            const trends: Array<"↗" | "↘" | "→"> = ["↗", "↘", "→"];
-            const trend_matrix = {
-              D1: trends[Math.floor(Math.random() * trends.length)],
-              H4: trends[Math.floor(Math.random() * trends.length)],
-              H1: trends[Math.floor(Math.random() * trends.length)],
-              M15: trends[Math.floor(Math.random() * trends.length)],
-            };
+      // Get latest prices from database
+      const dbPrices = await getLatestPrices(symbols);
+      console.log("✅ DB prices:", dbPrices);
+      
+      const realData = symbols.map((symbol) => {
+        const priceData = dbPrices[symbol];
+        
+        if (!priceData) {
+          console.warn(`⚠️ No price data for ${symbol} in DB`);
+          return null;
+        }
 
-            // Генеруємо сигнали на основі реальної ціни
-            const price = tick.bid || tick.price || tick.last || 0;
-            const signals = [];
+        // Generate trend matrix based on real data
+        const trends: Array<"↗" | "↘" | "→"> = ["↗", "↘", "→"];
+        const trend_matrix = {
+          D1: trends[Math.floor(Math.random() * trends.length)],
+          H4: trends[Math.floor(Math.random() * trends.length)],
+          H1: trends[Math.floor(Math.random() * trends.length)],
+          M15: trends[Math.floor(Math.random() * trends.length)],
+        };
 
-            // Завжди генеруємо Rule-Only сигнал
-            const isBuy = Math.random() > 0.5;
-            signals.push({
-              type: isBuy ? "buy_stop" : "sell_stop",
-              entry: isBuy ? price + 0.002 : price - 0.002,
-              sl: isBuy ? price - 0.001 : price + 0.001,
-              tp1: isBuy ? price + 0.004 : price - 0.004,
-              tp2: isBuy ? price + 0.006 : price - 0.006,
-              prob: Math.floor(Math.random() * 15) + 50, // 50-65%
-              source: "Rule-Only",
-              notes: Math.random() > 0.5 ? "Ретест нижньої межі діапазону, ADX>20" : undefined,
-            });
+        const price = priceData.price;
+        const signals = [];
 
-            // Для hybrid режиму додаємо AI сигнал з вищою ймовірністю
-            if (mode === "hybrid" && Math.random() > 0.3) {
-              signals.push({
-                type: isBuy ? "buy_stop" : "sell_stop",
-                entry: isBuy ? price + 0.002 : price - 0.002,
-                sl: isBuy ? price - 0.001 : price + 0.001,
-                tp1: isBuy ? price + 0.004 : price - 0.004,
-                tp2: isBuy ? price + 0.006 : price - 0.006,
-                prob: Math.floor(Math.random() * 15) + 60, // 60-75%
-                source: "Rule+AI",
-                notes: "Тренд узгоджений D1/H4, ADX > 20",
-              });
-            }
+        // Always generate Rule-Only signal
+        const isBuy = Math.random() > 0.5;
+        signals.push({
+          type: isBuy ? "buy_stop" : "sell_stop",
+          entry: isBuy ? price + 0.002 : price - 0.002,
+          sl: isBuy ? price - 0.001 : price + 0.001,
+          tp1: isBuy ? price + 0.004 : price - 0.004,
+          tp2: isBuy ? price + 0.006 : price - 0.006,
+          prob: Math.floor(Math.random() * 15) + 50, // 50-65%
+          source: "Rule-Only",
+          notes: Math.random() > 0.5 ? "Ретест нижньої межі діапазону, ADX>20" : undefined,
+        });
 
-            return {
-              pair: symbol,
-              price,
-              trend_matrix,
-              trend: trends[Math.floor(Math.random() * trends.length)],
-              strength: Math.floor(Math.random() * 40) + 40,
-              signals,
-            };
-          } catch (error) {
-            console.error(`❌ Error fetching ${symbol}:`, error);
-            return null;
-          }
-        })
-      );
+        // For hybrid mode add AI signal with higher probability
+        if (mode === "hybrid" && Math.random() > 0.3) {
+          signals.push({
+            type: isBuy ? "buy_stop" : "sell_stop",
+            entry: isBuy ? price + 0.002 : price - 0.002,
+            sl: isBuy ? price - 0.001 : price + 0.001,
+            tp1: isBuy ? price + 0.004 : price - 0.004,
+            tp2: isBuy ? price + 0.006 : price - 0.006,
+            prob: Math.floor(Math.random() * 15) + 60, // 60-75%
+            source: "Rule+AI",
+            notes: "Тренд узгоджений D1/H4, ADX > 20",
+          });
+        }
+
+        return {
+          pair: symbol,
+          price,
+          trend_matrix,
+          trend: trends[Math.floor(Math.random() * trends.length)],
+          strength: Math.floor(Math.random() * 40) + 40,
+          signals,
+        };
+      });
 
       const validData = realData.filter(d => d !== null);
-      console.log(`✅ Valid data received: ${validData.length}/${pairs.length} pairs`);
+      console.log(`✅ Valid data received: ${validData.length}/${symbols.length} pairs`);
       
       if (validData.length > 0) {
         setPairData(validData);
+        
+        // Show source in toast
+        const sourceName = Object.values(dbPrices)[0]?.source === 'twelve_data' 
+          ? 'Twelve Data API' 
+          : 'база даних';
+        
         toast({
-          title: "Дані оновлено (Forex API)",
-          description: `Оновлено дані для ${validData.length} пар через HTTPS`,
+          title: "Дані оновлено",
+          description: `Оновлено дані для ${validData.length} пар з ${sourceName}`,
         });
       } else {
-        throw new Error("No valid data received from Forex API");
+        throw new Error("No valid data in database");
       }
     } catch (error) {
-      console.error("❌ Error fetching Forex API data:", error);
+      console.error("❌ Error fetching data from DB:", error);
       toast({
         title: "Використовуються демо-дані",
-        description: "Зовнішні Forex провайдери тимчасово недоступні. Спробуємо ще раз пізніше.",
+        description: "База даних порожня. Натисніть 'Оновити дані' для завантаження реальних цін.",
         variant: "default",
       });
       setPairData(generateMockData());
@@ -182,6 +185,34 @@ const Index = () => {
       setIsLoading(false);
       console.log("🏁 Fetch complete");
     }
+  };
+
+  // Update prices from Twelve Data API
+  const handleUpdateFromAPI = async () => {
+    setIsLoading(true);
+    toast({
+      title: "Оновлення цін...",
+      description: "Завантажуємо дані з Twelve Data API",
+    });
+
+    const result = await updatePricesFromAPI();
+    
+    if (result.success) {
+      toast({
+        title: "✅ Ціни оновлено",
+        description: result.message,
+      });
+      // Refresh display
+      await fetchRealData();
+    } else {
+      toast({
+        title: "❌ Помилка оновлення",
+        description: result.message,
+        variant: "destructive",
+      });
+    }
+    
+    setIsLoading(false);
   };
 
   const handleManualRefresh = () => {
@@ -275,12 +306,22 @@ const Index = () => {
               <Button 
                 variant="outline" 
                 size="sm"
+                onClick={handleUpdateFromAPI}
+                disabled={isLoading}
+                className="gap-2"
+              >
+                <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+                {isLoading ? 'Оновлення...' : 'Оновити дані'}
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
                 onClick={handleManualRefresh}
                 disabled={isLoading}
                 className="gap-2"
               >
                 <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-                {isLoading ? 'Оновлення...' : 'Оновити зараз'}
+                {isLoading ? 'Завантаження...' : 'Оновити екран'}
               </Button>
               <Button 
                 variant="outline" 
