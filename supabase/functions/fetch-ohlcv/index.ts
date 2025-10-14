@@ -34,25 +34,31 @@ serve(async (req) => {
 
     const pairs = ['EUR/USD', 'GBP/USD', 'USD/JPY', 'USD/CHF', 'AUD/USD', 'NZD/USD', 'USD/CAD'];
     const results = [];
-    let isInitialLoad = false;
 
     console.log('[FetchOHLCV] Starting OHLCV fetch');
 
-    // Check if we have any data - if not, this is initial load
-    const { count } = await supabase
+    // Get existing bar counts for each symbol/timeframe
+    const { data: existingData } = await supabase
       .from('forex_ohlcv')
-      .select('*', { count: 'exact', head: true });
+      .select('symbol, timeframe, bar_timestamp');
     
-    isInitialLoad = !count || count === 0;
-    console.log(`[FetchOHLCV] Mode: ${isInitialLoad ? 'INITIAL LOAD' : 'UPDATE'}`);
+    const barCounts = new Map<string, number>();
+    existingData?.forEach(row => {
+      const key = `${row.symbol}_${row.timeframe}`;
+      barCounts.set(key, (barCounts.get(key) || 0) + 1);
+    });
 
     for (const symbol of pairs) {
       for (const [timeframe, config] of Object.entries(TIMEFRAME_CONFIG)) {
         try {
-          // For updates, only fetch 2 most recent bars
-          const fetchCount = isInitialLoad ? config.count : 2;
+          // Check bars for THIS specific symbol/timeframe
+          const key = `${symbol}_${timeframe}`;
+          const existingBars = barCounts.get(key) || 0;
+          const needsLoad = existingBars < 10;
+          const fetchCount = needsLoad ? config.count : 2;
+          const mode = needsLoad ? 'LOAD' : 'UPDATE';
           
-          console.log(`[FetchOHLCV] Fetching ${symbol} ${timeframe} (${fetchCount} bars)`);
+          console.log(`[FetchOHLCV] ${mode}: ${symbol} ${timeframe} (${existingBars} exist, fetching ${fetchCount})`);
 
           const url = `https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(symbol)}&interval=${config.interval}&outputsize=${fetchCount}&apikey=${encodeURIComponent(TWELVE_DATA_KEY)}`;
           const response = await fetch(url);
@@ -105,11 +111,11 @@ serve(async (req) => {
             results.push({ symbol, timeframe, status: 'db_error', message: insertError.message });
           } else {
             console.log(`[FetchOHLCV] ✅ Saved ${bars.length} bars for ${symbol} ${timeframe}`);
-            results.push({ symbol, timeframe, status: 'success', bars: bars.length });
+            results.push({ symbol, timeframe, status: 'success', bars: bars.length, mode });
           }
 
           // Smart delay based on mode
-          const delay = isInitialLoad ? 800 : 500; // Longer delay for initial load
+          const delay = needsLoad ? 800 : 500;
           await new Promise(resolve => setTimeout(resolve, delay));
 
         } catch (error) {
@@ -127,15 +133,23 @@ serve(async (req) => {
 
     const successCount = results.filter(r => r.status === 'success').length;
     const failCount = results.filter(r => r.status !== 'success').length;
+    const loadCount = results.filter(r => r.mode === 'LOAD').length;
+    const updateCount = results.filter(r => r.mode === 'UPDATE').length;
 
-    console.log(`[FetchOHLCV] Complete: ${successCount} success, ${failCount} failed (${isInitialLoad ? 'initial load' : 'update'})`);
+    const message = loadCount > 0 
+      ? `📥 ${successCount}/${pairs.length * Object.keys(TIMEFRAME_CONFIG).length} datasets (${loadCount} loaded, ${updateCount} updated)`
+      : `🔄 ${successCount}/${pairs.length * Object.keys(TIMEFRAME_CONFIG).length} datasets updated`;
+
+    console.log(`[FetchOHLCV] Complete: ${message}`);
 
     return new Response(
       JSON.stringify({ 
         success: true,
-        mode: isInitialLoad ? 'initial' : 'update',
+        message,
         fetched: successCount,
         failed: failCount,
+        loaded: loadCount,
+        updated: updateCount,
         results 
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
