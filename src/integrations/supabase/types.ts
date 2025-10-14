@@ -14,7 +14,96 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      ai_requests_log: {
+        Row: {
+          created_at: string | null
+          credits_used: number
+          id: string
+          request_data: Json | null
+          request_type: string
+          response_data: Json | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          credits_used: number
+          id?: string
+          request_data?: Json | null
+          request_type: string
+          response_data?: Json | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          credits_used?: number
+          id?: string
+          request_data?: Json | null
+          request_type?: string
+          response_data?: Json | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string | null
+          email: string | null
+          full_name: string | null
+          id: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string | null
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string | null
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_credits: {
+        Row: {
+          created_at: string | null
+          credits_balance: number
+          id: string
+          last_purchase_at: string | null
+          total_spent: number
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          credits_balance?: number
+          id?: string
+          last_purchase_at?: string | null
+          total_spent?: number
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          credits_balance?: number
+          id?: string
+          last_purchase_at?: string | null
+          total_spent?: number
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
