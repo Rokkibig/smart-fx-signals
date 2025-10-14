@@ -45,11 +45,13 @@ serve(async (req) => {
       );
     }
 
-    // Call Claude Sonnet 4.5 through Lovable AI Gateway
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY not configured');
+    // Call Claude Sonnet 4.5 directly through Anthropic API
+    const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
+    if (!ANTHROPIC_API_KEY) {
+      throw new Error('ANTHROPIC_API_KEY not configured');
     }
+
+    console.log('Analyzing with Claude Sonnet 4.5 via Anthropic API...');
 
     const systemPrompt = `Ти експерт-аналітик Forex ринку. Аналізуй валютні пари та надавай конкретні торгові рекомендації.
 
@@ -65,40 +67,48 @@ serve(async (req) => {
 
     const pairInfo = JSON.stringify(pairData, null, 2);
 
-    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const aiResponse = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'x-api-key': ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-5',
+        max_tokens: 1024,
+        system: systemPrompt,
         messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: `Проаналізуй валютну пару та надай торгову рекомендацію:\n\n${pairInfo}` }
+          { 
+            role: 'user', 
+            content: `Проаналізуй валютну пару та надай торгову рекомендацію:\n\n${pairInfo}` 
+          }
         ],
-        max_tokens: 1000,
       }),
     });
 
     if (!aiResponse.ok) {
+      const errorText = await aiResponse.text();
+      console.error('Claude API error:', aiResponse.status, errorText);
+      
       if (aiResponse.status === 429) {
         return new Response(
           JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }),
           { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      if (aiResponse.status === 402) {
+      if (aiResponse.status === 401) {
         return new Response(
-          JSON.stringify({ error: 'AI service payment required. Please contact support.' }),
-          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ error: 'Invalid API key. Please check your Claude API key.' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      throw new Error(`AI API error: ${aiResponse.status}`);
+      throw new Error(`Claude API error: ${aiResponse.status} - ${errorText}`);
     }
 
     const aiData = await aiResponse.json();
-    const analysis = aiData.choices[0].message.content;
+    const analysis = aiData.content[0].text;
+    console.log('Analysis completed successfully');
 
     // Deduct 1 credit
     await supabase
