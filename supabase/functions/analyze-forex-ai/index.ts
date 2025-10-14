@@ -10,17 +10,17 @@ const corsHeaders = {
 
 // Input validation schema
 const pairDataSchema = z.object({
-  pair: z.string().max(20),
+  pair: z.string().trim().min(1).max(20),
   price: z.number().positive().optional(),
-  trend: z.string().max(10).optional(),
+  trend: z.string().trim().max(10).optional(),
   strength: z.number().min(0).max(100).optional(),
   trend_matrix: z.object({
-    D1: z.string().max(10).optional(),
-    H4: z.string().max(10).optional(),
-    H1: z.string().max(10).optional(),
-    M15: z.string().max(10).optional(),
-  }).optional(),
-}).passthrough();
+    D1: z.string().trim().max(10).optional(),
+    H4: z.string().trim().max(10).optional(),
+    H1: z.string().trim().max(10).optional(),
+    M15: z.string().trim().max(10).optional(),
+  }).strict().optional(),
+}).strict();
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
