@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { generateASCII, copyToClipboard } from "@/utils/asciiExport";
 import { Copy, RefreshCw } from "lucide-react";
-import { freeForexApi } from "@/lib/freeForexAPI";
+import { mt5Api } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 
 // Mock data for demo - replace with actual API calls
@@ -99,9 +99,9 @@ const Index = () => {
           try {
             console.log(`🔍 Fetching ${symbol} from MT5...`);
             
-            // Отримуємо тік дані
-            const tick = await freeForexApi.getTick(symbol.replace("/", ""));
-            console.log(`✅ ${symbol} tick:`, tick);
+            // Отримуємо тік дані з MT5
+            const tick = await mt5Api.getTick(symbol);
+            console.log(`✅ ${symbol} tick from MT5:`, tick);
             
             // Генеруємо trend matrix на основі реальних даних
             const trends: Array<"↗" | "↘" | "→"> = ["↗", "↘", "→"];
@@ -118,7 +118,8 @@ const Index = () => {
             const hasAI = mode === "hybrid" && Math.random() > 0.4;
             const signals = [];
 
-            const price = tick.bid || tick.price || tick.last || 0;
+            // Використовуємо bid ціну з MT5
+            const price = tick.bid;
 
             if (hasSell && hasRule) {
               signals.push({
