@@ -1,11 +1,26 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Input validation schema
+const pairDataSchema = z.object({
+  pair: z.string().max(20),
+  price: z.number().positive().optional(),
+  trend: z.string().max(10).optional(),
+  strength: z.number().min(0).max(100).optional(),
+  trend_matrix: z.object({
+    D1: z.string().max(10).optional(),
+    H4: z.string().max(10).optional(),
+    H1: z.string().max(10).optional(),
+    M15: z.string().max(10).optional(),
+  }).optional(),
+}).passthrough();
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -29,7 +44,23 @@ serve(async (req) => {
       throw new Error('Unauthorized');
     }
 
-    const { pairData } = await req.json();
+    const requestId = crypto.randomUUID();
+    const body = await req.json();
+    
+    // Validate input
+    const validationResult = pairDataSchema.safeParse(body.pairData);
+    if (!validationResult.success) {
+      console.error('Validation failed:', { requestId, errors: validationResult.error.errors });
+      return new Response(
+        JSON.stringify({ 
+          error: 'Invalid request data format',
+          request_id: requestId
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    const pairData = validationResult.data;
 
     // Check user credits
     const { data: credits, error: creditsError } = await supabase
@@ -86,11 +117,10 @@ serve(async (req) => {
           usedProvider = 'Lovable AI (Gemini Flash)';
           console.log('✓ Analysis completed with Lovable AI');
         } else if (aiResponse.status !== 429 && aiResponse.status !== 402) {
-          const errorText = await aiResponse.text();
-          console.error('Lovable AI error:', aiResponse.status, errorText);
+          console.error('Lovable AI error:', { requestId, status: aiResponse.status });
         }
       } catch (error) {
-        console.error('Lovable AI failed:', error);
+        console.error('Lovable AI failed:', { requestId, error: error instanceof Error ? error.message : 'Unknown error' });
       }
     }
 
@@ -122,11 +152,10 @@ serve(async (req) => {
             usedProvider = 'Google Gemini';
             console.log('✓ Analysis completed with Google Gemini');
           } else {
-            const errorText = await aiResponse.text();
-            console.error('Google API error:', aiResponse.status, errorText);
+            console.error('Google API error:', { requestId, status: aiResponse.status });
           }
         } catch (error) {
-          console.error('Google Gemini failed:', error);
+          console.error('Google Gemini failed:', { requestId, error: error instanceof Error ? error.message : 'Unknown error' });
         }
       }
     }
@@ -160,11 +189,10 @@ serve(async (req) => {
             usedProvider = 'Groq (Llama 3.3)';
             console.log('✓ Analysis completed with Groq');
           } else {
-            const errorText = await aiResponse.text();
-            console.error('Groq API error:', aiResponse.status, errorText);
+            console.error('Groq API error:', { requestId, status: aiResponse.status });
           }
         } catch (error) {
-          console.error('Groq failed:', error);
+          console.error('Groq failed:', { requestId, error: error instanceof Error ? error.message : 'Unknown error' });
         }
       }
     }
@@ -177,8 +205,12 @@ serve(async (req) => {
 
     // If all providers failed
     if (!analysis) {
+      console.error('All AI providers failed:', { requestId });
       return new Response(
-        JSON.stringify({ error: 'All AI providers are currently unavailable. Please try again later.' }),
+        JSON.stringify({ 
+          error: 'AI analysis service temporarily unavailable. Please try again later.',
+          request_id: requestId
+        }),
         { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -219,10 +251,16 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('Error in analyze-forex-ai:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const requestId = crypto.randomUUID();
+    console.error('Error in analyze-forex-ai:', { 
+      requestId, 
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
     return new Response(
-      JSON.stringify({ error: errorMessage }),
+      JSON.stringify({ 
+        error: 'Unable to process your request. Please try again later.',
+        request_id: requestId
+      }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
