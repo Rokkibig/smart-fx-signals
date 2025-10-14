@@ -310,19 +310,15 @@ const Index = () => {
         <main className="space-y-6">
           <div className="flex justify-between items-center mb-4">
             <div className="text-xs text-muted-foreground flex items-center gap-2">
-              <span>Авто-оновлення: кожні 15 хв</span>
               {mode === "hybrid" && aiActive && (
                 <>
-                  <span>•</span>
                   <span className="w-2 h-2 rounded-full bg-success animate-pulse" />
                   <span>AI активний</span>
+                  <span>•</span>
                 </>
               )}
               {user && credits !== null && (
-                <>
-                  <span>•</span>
-                  <span>Кредитів: {credits}</span>
-                </>
+                <span>Кредитів: {credits}</span>
               )}
             </div>
             <div className="flex gap-2">
