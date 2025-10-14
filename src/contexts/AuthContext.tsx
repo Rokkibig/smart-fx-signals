@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from "@/components/ui/sonner";
 
 interface AuthContextType {
   user: User | null;
@@ -18,7 +18,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [credits, setCredits] = useState<number | null>(null);
-  const { toast } = useToast();
+  
 
   const refreshCredits = async () => {
     if (!user) return;
@@ -75,10 +75,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       if (error) throw error;
     } catch (error: any) {
-      toast({
-        title: 'Помилка входу',
+      toast.error('Помилка входу', {
         description: error.message,
-        variant: 'destructive',
       });
     }
   };
@@ -88,15 +86,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
       
-      toast({
-        title: 'Вихід виконано',
+      toast.success('Вихід виконано', {
         description: 'До зустрічі!',
       });
     } catch (error: any) {
-      toast({
-        title: 'Помилка виходу',
+      toast.error('Помилка виходу', {
         description: error.message,
-        variant: 'destructive',
       });
     }
   };
