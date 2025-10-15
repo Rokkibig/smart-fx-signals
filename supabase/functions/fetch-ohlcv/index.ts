@@ -61,6 +61,28 @@ serve(async (req) => {
       barCounts.set(key, (barCounts.get(key) || 0) + 1);
     });
 
+    // Helper function to fetch with retry
+    async function fetchWithRetry(url: string, maxRetries = 3): Promise<any> {
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          const response = await fetch(url);
+          const data = await response.json();
+          
+          if (data.code === 429 && attempt < maxRetries) {
+            const waitTime = Math.min(10000 * attempt, 30000); // Max 30s
+            console.log(`[FetchOHLCV] Rate limit, retry ${attempt}/${maxRetries} in ${waitTime}ms`);
+            await new Promise(resolve => setTimeout(resolve, waitTime));
+            continue;
+          }
+          
+          return { response, data };
+        } catch (error) {
+          if (attempt === maxRetries) throw error;
+          await new Promise(resolve => setTimeout(resolve, 2000 * attempt));
+        }
+      }
+    }
+
     for (const symbol of pairs) {
       for (const [timeframe, tfConfig] of Object.entries(config)) {
         try {
@@ -77,28 +99,34 @@ serve(async (req) => {
           console.log(`[FetchOHLCV] ${mode}: ${symbol} ${timeframe} (${existingBars}/${minRequired} exist, fetching ${fetchCount})`);
 
           const url = `https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(symbol)}&interval=${tfConfig.interval}&outputsize=${fetchCount}&apikey=${encodeURIComponent(TWELVE_DATA_KEY)}`;
-          const response = await fetch(url);
+          
+          const result = await fetchWithRetry(url);
+          if (!result) {
+            console.error(`[FetchOHLCV] Failed after retries: ${symbol} ${timeframe}`);
+            results.push({ symbol, timeframe, status: 'error', message: 'Max retries exceeded' });
+            continue;
+          }
+
+          const { response, data } = result;
 
           if (!response.ok) {
             console.error(`[FetchOHLCV] API error: ${response.status}`);
             results.push({ symbol, timeframe, status: 'error', message: `API ${response.status}` });
-            await new Promise(resolve => setTimeout(resolve, 1000)); // Longer delay on error
+            await new Promise(resolve => setTimeout(resolve, 2000));
             continue;
           }
 
-          const data = await response.json();
-
           if (data.code === 429) {
-            console.error('[FetchOHLCV] Rate limit hit');
+            console.error('[FetchOHLCV] Rate limit hit after retries');
             results.push({ symbol, timeframe, status: 'rate_limit' });
-            await new Promise(resolve => setTimeout(resolve, 2000)); // Long delay on rate limit
+            await new Promise(resolve => setTimeout(resolve, 3000));
             continue;
           }
 
           if (!data.values || !Array.isArray(data.values)) {
-            console.error(`[FetchOHLCV] Invalid data for ${symbol} ${timeframe}`);
+            console.error(`[FetchOHLCV] Invalid data for ${symbol} ${timeframe}:`, data);
             results.push({ symbol, timeframe, status: 'invalid_data' });
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            await new Promise(resolve => setTimeout(resolve, 2000));
             continue;
           }
 
@@ -130,8 +158,9 @@ serve(async (req) => {
             results.push({ symbol, timeframe, status: 'success', bars: bars.length, mode });
           }
 
-          // Smart delay based on mode
-          const delay = needsLoad ? 800 : 500;
+          // Smart delay: longer between requests to respect API limits
+          // Twelve Data free tier: 8 requests/minute = 7.5s between requests
+          const delay = needsLoad ? 8500 : 8000;
           await new Promise(resolve => setTimeout(resolve, delay));
 
         } catch (error) {
@@ -142,7 +171,7 @@ serve(async (req) => {
             status: 'error', 
             message: error instanceof Error ? error.message : 'Unknown' 
           });
-          await new Promise(resolve => setTimeout(resolve, 1000));
+          await new Promise(resolve => setTimeout(resolve, 2000));
         }
       }
     }
