@@ -3,7 +3,7 @@ import { Header } from "@/components/Header";
 import { PairCard } from "@/components/PairCard";
 import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "@/components/ui/sonner";
 import { generateASCII, copyToClipboard } from "@/utils/asciiExport";
 import { Copy, RefreshCw, Activity } from "lucide-react";
 import { getLatestPrices, updatePricesFromAPI } from "@/lib/forexDB";
@@ -86,7 +86,7 @@ const Index = () => {
   const [aiActive, setAiActive] = useState(false);
   const [nextRefreshIn, setNextRefreshIn] = useState(300); // 5 minutes in seconds
   const [autoRecovered, setAutoRecovered] = useState(false);
-  const { toast } = useToast();
+  
   const { user, signInWithGoogle, credits } = useAuth();
   const marketStatus = useMarketStatus();
 
@@ -177,8 +177,7 @@ console.log(`✅ Valid data received: ${validData.length}/${symbols.length} pair
 
 if (validData.length > 0) {
   setPairData(validData as any);
-  toast({
-    title: "Дані оновлено",
+  toast.success("Дані оновлено", {
     description: `Оновлено ${validData.length} пар з реальними індикаторами`,
   });
 } else {
@@ -186,10 +185,8 @@ if (validData.length > 0) {
 }
 } catch (error) {
   console.error("❌ Error fetching data:", error);
-  toast({
-    title: "Використовуються демо-дані",
+  toast("Використовуються демо-дані", {
     description: "База даних порожня або дані недостатні. Спробую завантажити історію автоматично...",
-    variant: "default",
   });
   if (!autoRecovered) {
     const res = await fullUpdate();
@@ -210,25 +207,21 @@ if (validData.length > 0) {
   const handleFullUpdate = async () => {
     setIsLoading(true);
     setAiActive(true);
-    toast({
-      title: "🔄 Повне оновлення...",
+    toast("🔄 Повне оновлення...", {
       description: "Завантаження історичних даних + обчислення індикаторів",
     });
 
     const result = await fullUpdate();
     
     if (result.success) {
-      toast({
-        title: "✅ Індикатори оновлено",
+      toast.success("✅ Індикатори оновлено", {
         description: result.message,
       });
       // Refresh display with new indicators
       await fetchRealData();
     } else {
-      toast({
-        title: "❌ Помилка оновлення",
+      toast.error("❌ Помилка оновлення", {
         description: result.message,
-        variant: "destructive",
       });
     }
     
@@ -291,15 +284,12 @@ if (validData.length > 0) {
     const success = await copyToClipboard(ascii);
     
     if (success) {
-      toast({
-        title: "Скопійовано",
+      toast.success("Скопійовано", {
         description: "ASCII формат скопійовано в буфер обміну",
       });
     } else {
-      toast({
-        title: "Помилка",
+      toast.error("Помилка", {
         description: "Не вдалося скопіювати",
-        variant: "destructive",
       });
     }
   };

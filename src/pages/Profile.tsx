@@ -5,14 +5,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Coins, TrendingUp, LogOut, ArrowLeft } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from '@/components/ui/sonner';
 
 export default function Profile() {
   const { user, signOut, credits, refreshCredits } = useAuth();
   const [requestsLog, setRequestsLog] = useState<any[]>([]);
   const [isLoadingRequest, setIsLoadingRequest] = useState(false);
   const navigate = useNavigate();
-  const { toast } = useToast();
+  
 
   useEffect(() => {
     if (!user) {
@@ -40,10 +40,8 @@ export default function Profile() {
 
   const handlePremiumRequest = async () => {
     if (!credits || credits < 1) {
-      toast({
-        title: 'Недостатньо кредитів',
+      toast.error('Недостатньо кредитів', {
         description: 'Будь ласка, придбайте більше кредитів для використання AI аналізу.',
-        variant: 'destructive',
       });
       return;
     }
@@ -66,8 +64,7 @@ export default function Profile() {
 
       if (error) throw error;
 
-      toast({
-        title: 'AI Аналіз готовий',
+      toast.success('AI Аналіз готовий', {
         description: `Кредитів залишилось: ${data.credits_remaining}`,
       });
 
@@ -79,10 +76,8 @@ export default function Profile() {
 
     } catch (error: any) {
       console.error('Premium request error:', error);
-      toast({
-        title: 'Помилка',
+      toast.error('Помилка', {
         description: error.message || 'Не вдалося виконати запит',
-        variant: 'destructive',
       });
     } finally {
       setIsLoadingRequest(false);
