@@ -151,6 +151,8 @@ export const generateRangeSignals = (
   const isJpy = symbol.includes('/JPY') || symbol.endsWith('JPY');
   const pipStep = isJpy ? 0.05 : 0.0005; // ~5 pips fallback
   const thresholdDistance = Math.max((atr || 0) * 1.5, pipStep * 3);
+  const slDistance = Math.max((atr || 0) * 1.5, pipStep * 3);
+  const entryOffset = Math.max((atr || 0) * 0.3, pipStep);
   
   const nearS1 = Math.abs(price - pivot_s1) < thresholdDistance;
   const nearS2 = Math.abs(price - pivot_s2) < thresholdDistance;
@@ -164,7 +166,7 @@ export const generateRangeSignals = (
     signals.push({
       type: "buy_limit",
       entry: support,
-      sl: support - atr * 1.5,
+      sl: support - slDistance,
       tp1: pivot_pp,
       tp2: pivot_r1,
       prob: nearS2 ? 65 : 60,
@@ -179,7 +181,7 @@ export const generateRangeSignals = (
     signals.push({
       type: "sell_limit",
       entry: resistance,
-      sl: resistance + atr * 1.5,
+      sl: resistance + slDistance,
       tp1: pivot_pp,
       tp2: pivot_s1,
       prob: nearR2 ? 65 : 60,
@@ -192,8 +194,8 @@ export const generateRangeSignals = (
   if (nearPP && price < pivot_pp) {
     signals.push({
       type: "buy_limit",
-      entry: pivot_pp - atr * 0.3,
-      sl: pivot_pp - atr * 1.5,
+      entry: pivot_pp - entryOffset,
+      sl: pivot_pp - slDistance,
       tp1: pivot_r1,
       prob: 55,
       source: "Rule-Only",
@@ -205,8 +207,8 @@ export const generateRangeSignals = (
   if (nearPP && price > pivot_pp) {
     signals.push({
       type: "sell_limit",
-      entry: pivot_pp + atr * 0.3,
-      sl: pivot_pp + atr * 1.5,
+      entry: pivot_pp + entryOffset,
+      sl: pivot_pp + slDistance,
       tp1: pivot_s1,
       prob: 55,
       source: "Rule-Only",
