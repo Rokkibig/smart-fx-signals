@@ -220,8 +220,12 @@ const { data: bars, error } = await supabase
             continue;
           }
           
-// Skip if not enough data for calculations
-const minRequired = timeframe === 'D1' ? 120 : 200;
+// Skip if not enough data for calculations (aligned with Base mode)
+const minRequired =
+  timeframe === 'D1' ? 50 :
+  timeframe === 'H4' ? 100 :
+  timeframe === 'H1' ? 200 :
+  100;
 if (bars.length < minRequired) {
   console.log(`[CalculateIndicators] Insufficient data for ${symbol} ${timeframe}: ${bars.length}/${minRequired} bars`);
   continue;
