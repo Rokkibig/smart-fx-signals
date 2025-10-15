@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.calculate-indicators]
 verify_jwt = false
+
+[functions.analyze-forex-ai]
+verify_jwt = false
