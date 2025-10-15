@@ -189,6 +189,19 @@ serve(async (req) => {
 
     console.log(`[FetchOHLCV] Complete: ${message}`);
 
+    // Auto-trigger indicators calculation after OHLCV fetch
+    console.log('[FetchOHLCV] Triggering calculate-indicators...');
+    try {
+      const { error: calcError } = await supabase.functions.invoke('calculate-indicators');
+      if (calcError) {
+        console.error('[FetchOHLCV] Error calling calculate-indicators:', calcError);
+      } else {
+        console.log('[FetchOHLCV] ✅ Indicators calculation triggered');
+      }
+    } catch (calcErr) {
+      console.error('[FetchOHLCV] Exception calling calculate-indicators:', calcErr);
+    }
+
     return new Response(
       JSON.stringify({ 
         success: true,

@@ -311,17 +311,17 @@ export const fullUpdate = async (superMode = false): Promise<{ success: boolean;
     return ohlcvResult;
   }
 
-  // Wait for data to settle
-  await new Promise(resolve => setTimeout(resolve, 2000));
-
-  // Step 2: Calculate indicators
-  const indicatorsResult = await calculateIndicators();
-  if (!indicatorsResult.success) {
-    return indicatorsResult;
+  // If fetch timed out (running in background), indicators will be calculated automatically on server
+  if (ohlcvResult.message.includes('Фонове') || ohlcvResult.message.includes('триває')) {
+    return {
+      success: true,
+      message: ohlcvResult.message + ' Індикатори будуть розраховані автоматично.'
+    };
   }
 
+  // If fetch completed successfully, indicators were already calculated on server
   return {
     success: true,
-    message: `${ohlcvResult.message} → ${indicatorsResult.message}`
+    message: ohlcvResult.message + ' Індикатори оновлено.'
   };
 };
