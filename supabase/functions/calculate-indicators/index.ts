@@ -205,27 +205,27 @@ serve(async (req) => {
     for (const symbol of pairs) {
       for (const timeframe of timeframes) {
         try {
-          // Get OHLCV data - need enough for indicators
-          const count = timeframe === 'D1' ? 50 : timeframe === 'H4' ? 100 : timeframe === 'H1' ? 200 : 100;
-          
-          const { data: bars, error } = await supabase
-            .rpc('get_latest_ohlcv', { 
-              p_symbol: symbol, 
-              p_timeframe: timeframe, 
-              p_count: count 
-            });
+// Get OHLCV data - need enough for indicators
+const count = timeframe === 'D1' ? 200 : timeframe === 'H4' ? 400 : timeframe === 'H1' ? 600 : 600;
+
+const { data: bars, error } = await supabase
+  .rpc('get_latest_ohlcv', { 
+    p_symbol: symbol, 
+    p_timeframe: timeframe, 
+    p_count: count 
+  });
 
           if (error || !bars || bars.length === 0) {
             console.log(`[CalculateIndicators] No data for ${symbol} ${timeframe}`);
             continue;
           }
           
-          // Skip if not enough data for calculations
-          const minRequired = timeframe === 'D1' ? 30 : 50;
-          if (bars.length < minRequired) {
-            console.log(`[CalculateIndicators] Insufficient data for ${symbol} ${timeframe}: ${bars.length}/${minRequired} bars`);
-            continue;
-          }
+// Skip if not enough data for calculations
+const minRequired = timeframe === 'D1' ? 120 : 200;
+if (bars.length < minRequired) {
+  console.log(`[CalculateIndicators] Insufficient data for ${symbol} ${timeframe}: ${bars.length}/${minRequired} bars`);
+  continue;
+}
 
           // Reverse to chronological order (oldest first)
           bars.reverse();

@@ -85,6 +85,7 @@ const Index = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [aiActive, setAiActive] = useState(false);
   const [nextRefreshIn, setNextRefreshIn] = useState(300); // 5 minutes in seconds
+  const [autoRecovered, setAutoRecovered] = useState(false);
   const { toast } = useToast();
   const { user, signInWithGoogle, credits } = useAuth();
   const marketStatus = useMarketStatus();
@@ -102,108 +103,107 @@ const Index = () => {
       const dbPrices = await getLatestPrices(symbols);
       console.log("✅ DB prices:", dbPrices);
       
-      const realData = await Promise.all(symbols.map(async (symbol) => {
-        const priceData = dbPrices[symbol];
-        
-        if (!priceData) {
-          console.warn(`⚠️ No price data for ${symbol} in DB`);
-          return null;
-        }
+const realData = await Promise.all(symbols.map(async (symbol) => {
+  const priceData = dbPrices[symbol];
+  
+  if (!priceData) {
+    console.warn(`⚠️ No price data for ${symbol} in DB`);
+    return null;
+  }
 
-        // Get real features from database
-        const features = await getFeaturesBySymbol(symbol);
-        console.log(`📊 Features for ${symbol}:`, features);
-        
-        // Get trend matrix from real indicators
-        const trend_matrix = getTrendMatrix(features);
-        const overallTrend = getOverallTrend(trend_matrix);
-        const strength = calculateTrendStrength(trend_matrix);
-        const marketMode = getMarketMode(features);
+  // Get real features from database
+  const features = await getFeaturesBySymbol(symbol);
+  console.log(`📊 Features for ${symbol}:`, features);
+  
+  // Get trend matrix from real indicators
+  const trend_matrix = getTrendMatrix(features);
+  const overallTrend = getOverallTrend(trend_matrix);
+  const strength = calculateTrendStrength(trend_matrix);
+  const marketMode = getMarketMode(features);
 
-        const price = priceData.price;
-        let signals = [];
+  const price = priceData.price;
+  let signals: any[] = [];
 
-        // Check if we have valid indicator data (not just defaults)
-        const hasValidData = features.M15 && 
-          features.M15.atr_14 > 0 && 
-          features.M15.rsi_14 !== 50;
-
-        if (!hasValidData) {
-          console.log(`⚠️ ${symbol}: Insufficient indicator data for signals`);
-        } else {
-          // Determine if market is trending or ranging
-          const hasTrend = overallTrend !== '→' && marketMode === "trending";
-          
-          if (hasTrend) {
-            // TRENDING MODE - Trend following signals
-            const isBuy = overallTrend === '↗';
-            
-            signals.push({
-              type: isBuy ? "buy_stop" : "sell_stop",
-              entry: isBuy ? price + 0.002 : price - 0.002,
-              sl: isBuy ? price - 0.001 : price + 0.001,
-              tp1: isBuy ? price + 0.004 : price - 0.004,
-              tp2: isBuy ? price + 0.006 : price - 0.006,
-              prob: Math.min(50 + strength, 75),
-              source: "Rule-Only",
-              notes: features.M15 
-                ? `Тренд: ADX ${features.M15.adx_14?.toFixed(1)}, RSI ${features.M15.rsi_14?.toFixed(1)}`
-                : undefined,
-            });
-
-            // For hybrid mode add AI signal
-            if (mode === "hybrid") {
-              signals.push({
-                type: isBuy ? "buy_stop" : "sell_stop",
-                entry: isBuy ? price + 0.002 : price - 0.002,
-                sl: isBuy ? price - 0.001 : price + 0.001,
-                tp1: isBuy ? price + 0.004 : price - 0.004,
-                tp2: isBuy ? price + 0.006 : price - 0.006,
-                prob: Math.min(60 + strength, 85),
-                source: "Rule+AI",
-                notes: `Тренд узгоджений ${Object.values(trend_matrix).filter(t => t === overallTrend).length}/4 ТФ`,
-              });
-            }
-          } else if (marketMode === "ranging" && features.M15) {
-            // RANGING MODE - Range trading signals ONLY
-            signals = generateRangeSignals(price, features.M15, mode);
-          }
-        }
-
-        return {
-          pair: symbol,
-          price,
-          trend_matrix,
-          trend: overallTrend,
-          strength,
-          signals,
-        };
-      }));
-
-      const validData = realData.filter(d => d !== null);
-      console.log(`✅ Valid data received: ${validData.length}/${symbols.length} pairs`);
-      
-      if (validData.length > 0) {
-        setPairData(validData);
-        toast({
-          title: "Дані оновлено",
-          description: `Оновлено ${validData.length} пар з реальними індикаторами`,
-        });
-      } else {
-        throw new Error("No valid data in database");
-      }
-    } catch (error) {
-      console.error("❌ Error fetching data:", error);
-      toast({
-        title: "Використовуються демо-дані",
-        description: "База даних порожня. Натисніть 'Завантажити історію' для початку.",
-        variant: "default",
+  if (features.M15) {
+    if (marketMode === "trending" && (features.M15.adx_14 ?? 0) >= 15 && overallTrend !== '→') {
+      // TRENDING MODE - Trend following signals
+      const isBuy = overallTrend === '↗';
+      signals.push({
+        type: isBuy ? "buy_stop" : "sell_stop",
+        entry: isBuy ? price + 0.002 : price - 0.002,
+        sl: isBuy ? price - 0.001 : price + 0.001,
+        tp1: isBuy ? price + 0.004 : price - 0.004,
+        tp2: isBuy ? price + 0.006 : price - 0.006,
+        prob: Math.min(50 + strength, 75),
+        source: "Rule-Only",
+        notes: features.M15 
+          ? `Тренд: ADX ${features.M15.adx_14?.toFixed(1)}, RSI ${features.M15.rsi_14?.toFixed(1)}`
+          : undefined,
       });
-      setPairData(generateMockData());
-    } finally {
-      setIsLoading(false);
-      console.log("🏁 Fetch complete");
+      if (mode === "hybrid") {
+        signals.push({
+          type: isBuy ? "buy_stop" : "sell_stop",
+          entry: isBuy ? price + 0.002 : price - 0.002,
+          sl: isBuy ? price - 0.001 : price + 0.001,
+          tp1: isBuy ? price + 0.004 : price - 0.004,
+          tp2: isBuy ? price + 0.006 : price - 0.006,
+          prob: Math.min(60 + strength, 85),
+          source: "Rule+AI",
+          notes: `Тренд узгоджений ${Object.values(trend_matrix).filter(t => t === overallTrend).length}/4 ТФ`,
+        });
+      }
+    } else if (marketMode === "ranging") {
+      // RANGING MODE - Range trading signals even if ATR=0/RSI=50
+      signals = generateRangeSignals(price, features.M15, mode);
+    } else {
+      console.log(`⚠️ ${symbol}: Insufficient trend strength for signals`);
     }
+  } else {
+    console.log(`⚠️ ${symbol}: Missing M15 features`);
+  }
+
+  return {
+    pair: symbol,
+    price,
+    trend_matrix,
+    trend: overallTrend,
+    strength,
+    signals,
+  };
+}));
+
+const validData = realData.filter(d => d !== null);
+console.log(`✅ Valid data received: ${validData.length}/${symbols.length} pairs`);
+
+if (validData.length > 0) {
+  setPairData(validData as any);
+  toast({
+    title: "Дані оновлено",
+    description: `Оновлено ${validData.length} пар з реальними індикаторами`,
+  });
+} else {
+  throw new Error("No valid data in database");
+}
+} catch (error) {
+  console.error("❌ Error fetching data:", error);
+  toast({
+    title: "Використовуються демо-дані",
+    description: "База даних порожня або дані недостатні. Спробую завантажити історію автоматично...",
+    variant: "default",
+  });
+  if (!autoRecovered) {
+    const res = await fullUpdate();
+    setAutoRecovered(true);
+    if (res.success) {
+      await fetchRealData();
+      return;
+    }
+  }
+  setPairData(generateMockData());
+} finally {
+  setIsLoading(false);
+  console.log("🏁 Fetch complete");
+}
   };
 
   // Full update: fetch OHLCV + calculate indicators
@@ -330,26 +330,26 @@ const Index = () => {
               )}
             </div>
             <div className="flex gap-2">
-              <Button 
-                variant="default" 
-                size="sm"
-                onClick={handleFullUpdate}
-                disabled={isLoading || !marketStatus.isOpen}
-                className={`gap-2 ${!marketStatus.isOpen ? 'opacity-50' : ''}`}
-              >
-                <Activity className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-                {isLoading ? 'Оновлення...' : 'Завантажити історію'}
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={handleManualRefresh}
-                disabled={isLoading || !marketStatus.isOpen}
-                className={`gap-2 ${!marketStatus.isOpen ? 'opacity-50' : ''}`}
-              >
-                <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-                {isLoading ? 'Завантаження...' : 'Оновити екран'}
-              </Button>
+<Button 
+  variant="default" 
+  size="sm"
+  onClick={handleFullUpdate}
+  disabled={isLoading}
+  className={`gap-2`}
+>
+  <Activity className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+  {isLoading ? 'Оновлення...' : 'Завантажити історію'}
+</Button>
+<Button 
+  variant="outline" 
+  size="sm"
+  onClick={handleManualRefresh}
+  disabled={isLoading}
+  className={`gap-2`}
+>
+  <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+  {isLoading ? 'Завантаження...' : 'Оновити екран'}
+</Button>
               <Button 
                 variant="outline" 
                 size="sm"

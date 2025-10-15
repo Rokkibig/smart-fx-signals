@@ -8,10 +8,10 @@ const corsHeaders = {
 
 // Timeframe configuration
 const TIMEFRAME_CONFIG = {
-  'D1': { interval: '1day', count: 50 },
-  'H4': { interval: '4h', count: 100 },
-  'H1': { interval: '1h', count: 200 },
-  'M15': { interval: '15min', count: 100 }
+  'D1': { interval: '1day', count: 120 },
+  'H4': { interval: '4h', count: 240 },
+  'H1': { interval: '1h', count: 500 },
+  'M15': { interval: '15min', count: 500 }
 };
 
 serve(async (req) => {
@@ -54,9 +54,9 @@ serve(async (req) => {
           // Check bars for THIS specific symbol/timeframe
           const key = `${symbol}_${timeframe}`;
           const existingBars = barCounts.get(key) || 0;
-          const minRequired = timeframe === 'D1' ? 50 : timeframe === 'H4' ? 100 : 200;
-          const needsLoad = existingBars < minRequired;
-          const fetchCount = needsLoad ? config.count : 2;
+const minRequired = timeframe === 'D1' ? 120 : timeframe === 'H4' ? 240 : 400;
+const needsLoad = existingBars < minRequired;
+const fetchCount = needsLoad ? config.count : 2;
           const mode = needsLoad ? 'LOAD' : 'UPDATE';
           
           console.log(`[FetchOHLCV] ${mode}: ${symbol} ${timeframe} (${existingBars}/${minRequired} exist, fetching ${fetchCount})`);
