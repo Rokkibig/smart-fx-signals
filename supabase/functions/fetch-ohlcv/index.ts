@@ -61,7 +61,7 @@ serve(async (req) => {
       barCounts.set(key, (barCounts.get(key) || 0) + 1);
     });
 
-    // Helper function to fetch with retry (shorter delays)
+    // Helper function to fetch with retry
     async function fetchWithRetry(url: string, maxRetries = 2): Promise<any> {
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
@@ -69,7 +69,7 @@ serve(async (req) => {
           const data = await response.json();
           
           if (data.code === 429 && attempt < maxRetries) {
-            const waitTime = 5000; // 5s fixed delay
+            const waitTime = 8000; // 8s wait for rate limit
             console.log(`[FetchOHLCV] Rate limit, retry ${attempt}/${maxRetries} in ${waitTime}ms`);
             await new Promise(resolve => setTimeout(resolve, waitTime));
             continue;
@@ -78,7 +78,7 @@ serve(async (req) => {
           return { response, data };
         } catch (error) {
           if (attempt === maxRetries) throw error;
-          await new Promise(resolve => setTimeout(resolve, 1000));
+          await new Promise(resolve => setTimeout(resolve, 2000));
         }
       }
     }
@@ -158,9 +158,10 @@ serve(async (req) => {
             results.push({ symbol, timeframe, status: 'success', bars: bars.length, mode });
           }
 
-          // Smart delay: respect API limits but keep reasonable
-          // Twelve Data free tier: 8 requests/minute, but we'll use 10s to be safe
-          const delay = needsLoad ? 10000 : 1000;
+          // Smart delay: 
+          // LOAD (перше завантаження) - 12 сек (безпечно для API)
+          // UPDATE (оновлення 2 свічок) - 2 сек (швидко)
+          const delay = needsLoad ? 12000 : 2000;
           await new Promise(resolve => setTimeout(resolve, delay));
 
         } catch (error) {
