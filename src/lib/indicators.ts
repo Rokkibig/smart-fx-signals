@@ -279,25 +279,7 @@ export const calculateIndicators = async (): Promise<{ success: boolean; message
 
 // Full update pipeline: fetch OHLCV → calculate indicators
 export const fullUpdate = async (): Promise<{ success: boolean; message: string }> => {
-  console.log('[Indicators] Starting full update pipeline');
-  
-  // Step 1: Fetch OHLCV
+  console.log('[Indicators] Fetching OHLCV only (rollback mode)');
   const ohlcvResult = await fetchOHLCV();
-  if (!ohlcvResult.success) {
-    return ohlcvResult;
-  }
-
-  // Wait a bit for data to settle
-  await new Promise(resolve => setTimeout(resolve, 2000));
-
-  // Step 2: Calculate indicators
-  const indicatorsResult = await calculateIndicators();
-  if (!indicatorsResult.success) {
-    return indicatorsResult;
-  }
-
-  return {
-    success: true,
-    message: `${ohlcvResult.message} → ${indicatorsResult.message}`
-  };
+  return ohlcvResult;
 };

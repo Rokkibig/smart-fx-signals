@@ -207,14 +207,14 @@ if (validData.length > 0) {
   const handleFullUpdate = async () => {
     setIsLoading(true);
     setAiActive(true);
-    toast("🔄 Повне оновлення...", {
-      description: "Завантаження історичних даних + обчислення індикаторів",
+  toast("🔄 Завантаження свічок...", {
+      description: "Забір історичних свічок (D1:50, H4:100, H1:200, M15:100)",
     });
 
     const result = await fullUpdate();
     
     if (result.success) {
-      toast.success("✅ Індикатори оновлено", {
+      toast.success("✅ Свічки завантажено", {
         description: result.message,
       });
       // Refresh display with new indicators
