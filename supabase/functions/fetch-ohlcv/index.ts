@@ -6,12 +6,20 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Timeframe configuration
+// Timeframe configuration - BASE MODE
 const TIMEFRAME_CONFIG = {
   'D1': { interval: '1day', count: 50 },
   'H4': { interval: '4h', count: 100 },
   'H1': { interval: '1h', count: 200 },
   'M15': { interval: '15min', count: 100 }
+};
+
+// SUPER MODE - глибокий аналіз для максимальної точності
+const TIMEFRAME_CONFIG_SUPER = {
+  'D1': { interval: '1day', count: 200 },
+  'H4': { interval: '4h', count: 200 },
+  'H1': { interval: '1h', count: 400 },
+  'M15': { interval: '15min', count: 200 }
 };
 
 serve(async (req) => {
@@ -32,10 +40,15 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // Check if SUPER mode is requested
+    const { superMode = false } = await req.json().catch(() => ({ superMode: false }));
+    const config = superMode ? TIMEFRAME_CONFIG_SUPER : TIMEFRAME_CONFIG;
+    const modeLabel = superMode ? 'СУПЕР' : 'Базовий';
+
     const pairs = ['EUR/USD', 'GBP/USD', 'USD/JPY', 'USD/CHF', 'AUD/USD', 'NZD/USD', 'USD/CAD'];
     const results = [];
 
-    console.log('[FetchOHLCV] Starting OHLCV fetch');
+    console.log(`[FetchOHLCV] Starting OHLCV fetch (${modeLabel} режим)`);
 
     // Get existing bar counts for each symbol/timeframe
     const { data: existingData } = await supabase
@@ -49,23 +62,21 @@ serve(async (req) => {
     });
 
     for (const symbol of pairs) {
-      for (const [timeframe, config] of Object.entries(TIMEFRAME_CONFIG)) {
+      for (const [timeframe, tfConfig] of Object.entries(config)) {
         try {
           // Check bars for THIS specific symbol/timeframe
           const key = `${symbol}_${timeframe}`;
           const existingBars = barCounts.get(key) || 0;
-const minRequired =
-  timeframe === 'D1' ? 50 :
-  timeframe === 'H4' ? 100 :
-  timeframe === 'H1' ? 200 :
-  100;
-const needsLoad = existingBars < minRequired;
-const fetchCount = needsLoad ? config.count : 2;
+          const minRequired = superMode 
+            ? (timeframe === 'D1' ? 200 : timeframe === 'H4' ? 200 : timeframe === 'H1' ? 400 : 200)
+            : (timeframe === 'D1' ? 50 : timeframe === 'H4' ? 100 : timeframe === 'H1' ? 200 : 100);
+          const needsLoad = existingBars < minRequired;
+          const fetchCount = needsLoad ? tfConfig.count : 2;
           const mode = needsLoad ? 'LOAD' : 'UPDATE';
           
           console.log(`[FetchOHLCV] ${mode}: ${symbol} ${timeframe} (${existingBars}/${minRequired} exist, fetching ${fetchCount})`);
 
-          const url = `https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(symbol)}&interval=${config.interval}&outputsize=${fetchCount}&apikey=${encodeURIComponent(TWELVE_DATA_KEY)}`;
+          const url = `https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(symbol)}&interval=${tfConfig.interval}&outputsize=${fetchCount}&apikey=${encodeURIComponent(TWELVE_DATA_KEY)}`;
           const response = await fetch(url);
 
           if (!response.ok) {
@@ -141,9 +152,10 @@ const fetchCount = needsLoad ? config.count : 2;
     const loadCount = results.filter(r => r.mode === 'LOAD').length;
     const updateCount = results.filter(r => r.mode === 'UPDATE').length;
 
+    const totalDatasets = pairs.length * Object.keys(config).length;
     const message = loadCount > 0 
-      ? `📥 ${successCount}/${pairs.length * Object.keys(TIMEFRAME_CONFIG).length} datasets (${loadCount} loaded, ${updateCount} updated)`
-      : `🔄 ${successCount}/${pairs.length * Object.keys(TIMEFRAME_CONFIG).length} datasets updated`;
+      ? `📥 ${modeLabel}: ${successCount}/${totalDatasets} datasets (${loadCount} loaded, ${updateCount} updated)`
+      : `🔄 ${modeLabel}: ${successCount}/${totalDatasets} datasets updated`;
 
     console.log(`[FetchOHLCV] Complete: ${message}`);
 

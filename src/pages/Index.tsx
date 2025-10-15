@@ -86,6 +86,7 @@ const Index = () => {
   const [aiActive, setAiActive] = useState(false);
   const [nextRefreshIn, setNextRefreshIn] = useState(300); // 5 minutes in seconds
   const [autoRecovered, setAutoRecovered] = useState(false);
+  const [superMode, setSuperMode] = useState(false); // Режим СУПЕР
   
   const { user, signInWithGoogle, credits } = useAuth();
   const marketStatus = useMarketStatus();
@@ -207,14 +208,20 @@ if (validData.length > 0) {
   const handleFullUpdate = async () => {
     setIsLoading(true);
     setAiActive(true);
-  toast("🔄 Завантаження свічок...", {
-      description: "Забір історичних свічок (D1:50, H4:100, H1:200, M15:100)",
+    
+    const modeLabel = superMode ? 'СУПЕР режим' : 'Базовий режим';
+    const depths = superMode 
+      ? 'D1:200, H4:200, H1:400, M15:200' 
+      : 'D1:50, H4:100, H1:200, M15:100';
+    
+    toast("🔄 Завантаження свічок...", {
+      description: `${modeLabel}: ${depths}`,
     });
 
-    const result = await fullUpdate();
+    const result = await fullUpdate(superMode);
     
     if (result.success) {
-      toast.success("✅ Свічки завантажено", {
+      toast.success("✅ Дані оновлено", {
         description: result.message,
       });
       // Refresh display with new indicators
@@ -318,6 +325,15 @@ if (validData.length > 0) {
               {user && credits !== null && (
                 <span>Кредитів: {credits}</span>
               )}
+              <span>•</span>
+              <Button
+                variant={superMode ? "default" : "outline"}
+                size="sm"
+                onClick={() => setSuperMode(!superMode)}
+                className="gap-2"
+              >
+                {superMode ? "🚀 СУПЕР" : "⚡ Базовий"}
+              </Button>
             </div>
             <div className="flex gap-2">
 <Button 

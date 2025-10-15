@@ -126,7 +126,7 @@ export const getMarketMode = (features: Record<string, ForexFeatures>): "trendin
   return "ranging";
 };
 
-// Generate range trading signals
+// Generate range trading signals (ПОСЛАБЛЕНІ правила для більше сигналів)
 export const generateRangeSignals = (
   price: number,
   features: ForexFeatures,
@@ -148,15 +148,15 @@ export const generateRangeSignals = (
   const { pivot_s1, pivot_s2, pivot_r1, pivot_r2, pivot_pp, rsi_14 } = features;
   const atr = features.atr_14 || 0.0001;
   
-  // Check if price near support or resistance
-  const nearS1 = Math.abs(price - pivot_s1) < atr * 0.5;
-  const nearS2 = Math.abs(price - pivot_s2) < atr * 0.5;
-  const nearR1 = Math.abs(price - pivot_r1) < atr * 0.5;
-  const nearR2 = Math.abs(price - pivot_r2) < atr * 0.5;
-  const nearPP = Math.abs(price - pivot_pp) < atr * 0.5;
+  // ПОСЛАБЛЕНО: збільшено зону від S/R/PP з 0.5 до 1.5 ATR
+  const nearS1 = Math.abs(price - pivot_s1) < atr * 1.5;
+  const nearS2 = Math.abs(price - pivot_s2) < atr * 1.5;
+  const nearR1 = Math.abs(price - pivot_r1) < atr * 1.5;
+  const nearR2 = Math.abs(price - pivot_r2) < atr * 1.5;
+  const nearPP = Math.abs(price - pivot_pp) < atr * 1.5;
   
-  // Buy from support
-  if ((nearS1 || nearS2) && rsi_14 < 40) {
+  // Buy from support (RSI < 50 замість < 40)
+  if ((nearS1 || nearS2) && rsi_14 < 50) {
     const support = nearS1 ? pivot_s1 : pivot_s2;
     signals.push({
       type: "buy_limit",
@@ -170,8 +170,8 @@ export const generateRangeSignals = (
     });
   }
   
-  // Sell from resistance
-  if ((nearR1 || nearR2) && rsi_14 > 60) {
+  // Sell from resistance (RSI > 50 замість > 60)
+  if ((nearR1 || nearR2) && rsi_14 > 50) {
     const resistance = nearR1 ? pivot_r1 : pivot_r2;
     signals.push({
       type: "sell_limit",
@@ -185,8 +185,8 @@ export const generateRangeSignals = (
     });
   }
   
-  // Buy from pivot point (mean reversion)
-  if (nearPP && rsi_14 < 50 && price < pivot_pp) {
+  // Buy from pivot point (будь-який RSI < 50)
+  if (nearPP && price < pivot_pp) {
     signals.push({
       type: "buy_limit",
       entry: pivot_pp - atr * 0.3,
@@ -198,8 +198,8 @@ export const generateRangeSignals = (
     });
   }
   
-  // Sell from pivot point
-  if (nearPP && rsi_14 > 50 && price > pivot_pp) {
+  // Sell from pivot point (будь-який RSI > 50)
+  if (nearPP && price > pivot_pp) {
     signals.push({
       type: "sell_limit",
       entry: pivot_pp + atr * 0.3,
@@ -226,9 +226,11 @@ export const generateRangeSignals = (
 };
 
 // Fetch historical OHLCV data
-export const fetchOHLCV = async (): Promise<{ success: boolean; message: string }> => {
+export const fetchOHLCV = async (superMode = false): Promise<{ success: boolean; message: string }> => {
   try {
-    const { data, error } = await supabase.functions.invoke('fetch-ohlcv');
+    const { data, error } = await supabase.functions.invoke('fetch-ohlcv', {
+      body: { superMode }
+    });
 
     if (error) {
       console.error('[Indicators] Error calling fetch-ohlcv:', error);
@@ -237,8 +239,8 @@ export const fetchOHLCV = async (): Promise<{ success: boolean; message: string 
 
     console.log('[Indicators] OHLCV fetch result:', data);
     
-    const mode = data.mode === 'initial' ? 'Перша загрузка' : 'Оновлення';
-    const message = `${mode}: ${data.fetched} датасетів${data.failed > 0 ? ` (помилок: ${data.failed})` : ''}`;
+    const modeLabel = superMode ? 'СУПЕР режим' : 'Базовий режим';
+    const message = `${modeLabel}: ${data.fetched} датасетів${data.failed > 0 ? ` (помилок: ${data.failed})` : ''}`;
     
     return { 
       success: true, 
@@ -278,8 +280,26 @@ export const calculateIndicators = async (): Promise<{ success: boolean; message
 };
 
 // Full update pipeline: fetch OHLCV → calculate indicators
-export const fullUpdate = async (): Promise<{ success: boolean; message: string }> => {
-  console.log('[Indicators] Fetching OHLCV only (rollback mode)');
-  const ohlcvResult = await fetchOHLCV();
-  return ohlcvResult;
+export const fullUpdate = async (superMode = false): Promise<{ success: boolean; message: string }> => {
+  console.log(`[Indicators] Starting full update (${superMode ? 'СУПЕР' : 'базовий'} режим)`);
+  
+  // Step 1: Fetch OHLCV
+  const ohlcvResult = await fetchOHLCV(superMode);
+  if (!ohlcvResult.success) {
+    return ohlcvResult;
+  }
+
+  // Wait for data to settle
+  await new Promise(resolve => setTimeout(resolve, 2000));
+
+  // Step 2: Calculate indicators
+  const indicatorsResult = await calculateIndicators();
+  if (!indicatorsResult.success) {
+    return indicatorsResult;
+  }
+
+  return {
+    success: true,
+    message: `${ohlcvResult.message} → ${indicatorsResult.message}`
+  };
 };
