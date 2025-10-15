@@ -125,8 +125,10 @@ const realData = await Promise.all(symbols.map(async (symbol) => {
   const price = priceData.price;
   let signals: any[] = [];
 
-  if (features.M15) {
-    if (marketMode === "trending" && (features.M15.adx_14 ?? 0) >= 15 && overallTrend !== '→') {
+  const tfForSignals = features.M15 ?? features.H1 ?? null;
+
+  if (tfForSignals) {
+    if (marketMode === "trending" && (tfForSignals.adx_14 ?? 0) >= 15 && overallTrend !== '→') {
       // TRENDING MODE - Trend following signals
       const isBuy = overallTrend === '↗';
       signals.push({
@@ -137,9 +139,7 @@ const realData = await Promise.all(symbols.map(async (symbol) => {
         tp2: isBuy ? price + 0.006 : price - 0.006,
         prob: Math.min(50 + strength, 75),
         source: "Rule-Only",
-        notes: features.M15 
-          ? `Тренд: ADX ${features.M15.adx_14?.toFixed(1)}, RSI ${features.M15.rsi_14?.toFixed(1)}`
-          : undefined,
+        notes: `Тренд: ADX ${tfForSignals.adx_14?.toFixed(1)}, RSI ${tfForSignals.rsi_14?.toFixed(1)}`,
       });
       if (mode === "hybrid") {
         signals.push({
@@ -154,13 +154,13 @@ const realData = await Promise.all(symbols.map(async (symbol) => {
         });
       }
     } else if (marketMode === "ranging") {
-      // RANGING MODE - Range trading signals even if ATR=0/RSI=50
-      signals = generateRangeSignals(price, features.M15, mode);
+      // RANGING MODE - Range trading signals even if ATR≈0
+      signals = generateRangeSignals(price, tfForSignals, mode);
     } else {
       console.log(`⚠️ ${symbol}: Insufficient trend strength for signals`);
     }
   } else {
-    console.log(`⚠️ ${symbol}: Missing M15 features`);
+    console.log(`⚠️ ${symbol}: Missing M15 and H1 features`);
   }
 
   return {

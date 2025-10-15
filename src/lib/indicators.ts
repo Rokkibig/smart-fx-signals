@@ -146,14 +146,17 @@ export const generateRangeSignals = (
   if (!features) return signals;
   
   const { pivot_s1, pivot_s2, pivot_r1, pivot_r2, pivot_pp, rsi_14 } = features;
-  const atr = features.atr_14 || 0.0001;
+  const atr = features.atr_14 || 0;
+  const symbol = features.symbol || '';
+  const isJpy = symbol.includes('/JPY') || symbol.endsWith('JPY');
+  const pipStep = isJpy ? 0.05 : 0.0005; // ~5 pips fallback
+  const thresholdDistance = Math.max((atr || 0) * 1.5, pipStep * 3);
   
-  // ПОСЛАБЛЕНО: збільшено зону від S/R/PP з 0.5 до 1.5 ATR
-  const nearS1 = Math.abs(price - pivot_s1) < atr * 1.5;
-  const nearS2 = Math.abs(price - pivot_s2) < atr * 1.5;
-  const nearR1 = Math.abs(price - pivot_r1) < atr * 1.5;
-  const nearR2 = Math.abs(price - pivot_r2) < atr * 1.5;
-  const nearPP = Math.abs(price - pivot_pp) < atr * 1.5;
+  const nearS1 = Math.abs(price - pivot_s1) < thresholdDistance;
+  const nearS2 = Math.abs(price - pivot_s2) < thresholdDistance;
+  const nearR1 = Math.abs(price - pivot_r1) < thresholdDistance;
+  const nearR2 = Math.abs(price - pivot_r2) < thresholdDistance;
+  const nearPP = Math.abs(price - pivot_pp) < thresholdDistance;
   
   // Buy from support (RSI < 50 замість < 40)
   if ((nearS1 || nearS2) && rsi_14 < 50) {
