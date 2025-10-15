@@ -114,118 +114,84 @@ serve(async (req) => {
 
     // Wrap AI calls in try-catch to refund credit if they fail
     try {
-      // Priority 1: Lovable AI (free quota)
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (LOVABLE_API_KEY) {
-      try {
-        console.log('Trying Lovable AI (Google Gemini)...');
-        const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: 'google/gemini-2.5-flash',
-            messages: [
-              { role: 'system', content: systemPrompt },
-              { role: 'user', content: userMessage }
-            ],
-            max_tokens: 1000,
-          }),
-        });
+      // Priority 1: Google Gemini (user's key)
+      if (!analysis) {
+        const GOOGLE_API_KEY = Deno.env.get('GOOGLE_API_KEY');
+        if (GOOGLE_API_KEY) {
+          try {
+            console.log('Trying Google Gemini API...');
+            const aiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GOOGLE_API_KEY}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: [{
+                  parts: [{
+                    text: `${systemPrompt}\n\n${userMessage}`
+                  }]
+                }],
+                generationConfig: {
+                  temperature: 0.7,
+                  maxOutputTokens: 1000,
+                }
+              }),
+            });
 
-        if (aiResponse.ok) {
-          const aiData = await aiResponse.json();
-          analysis = aiData.choices[0].message.content;
-          usedProvider = 'Lovable AI (Gemini Flash)';
-          console.log('✓ Analysis completed with Lovable AI');
-        } else if (aiResponse.status !== 429 && aiResponse.status !== 402) {
-          console.error('Lovable AI error:', { requestId, status: aiResponse.status });
+            if (aiResponse.ok) {
+              const aiData = await aiResponse.json();
+              analysis = aiData.candidates[0].content.parts[0].text;
+              usedProvider = 'Google Gemini';
+              console.log('✓ Analysis completed with Google Gemini');
+            } else {
+              console.error('Google API error:', { requestId, status: aiResponse.status });
+            }
+          } catch (error) {
+            console.error('Google Gemini failed:', { requestId, error: error instanceof Error ? error.message : 'Unknown error' });
+          }
         }
-      } catch (error) {
-        console.error('Lovable AI failed:', { requestId, error: error instanceof Error ? error.message : 'Unknown error' });
       }
-    }
 
-    // Priority 2: Google Gemini (user's key)
-    if (!analysis) {
-      const GOOGLE_API_KEY = Deno.env.get('GOOGLE_API_KEY');
-      if (GOOGLE_API_KEY) {
-        try {
-          console.log('Trying Google Gemini API...');
-          const aiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GOOGLE_API_KEY}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: [{
-                parts: [{
-                  text: `${systemPrompt}\n\n${userMessage}`
-                }]
-              }],
-              generationConfig: {
+      // Priority 2: Groq (user's key)
+      if (!analysis) {
+        const GROQ_API_KEY = Deno.env.get('GROQ_API_KEY');
+        if (GROQ_API_KEY) {
+          try {
+            console.log('Trying Groq API...');
+            const aiResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${GROQ_API_KEY}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                model: 'llama-3.3-70b-versatile',
+                messages: [
+                  { role: 'system', content: systemPrompt },
+                  { role: 'user', content: userMessage }
+                ],
+                max_tokens: 1000,
                 temperature: 0.7,
-                maxOutputTokens: 1000,
-              }
-            }),
-          });
+              }),
+            });
 
-          if (aiResponse.ok) {
-            const aiData = await aiResponse.json();
-            analysis = aiData.candidates[0].content.parts[0].text;
-            usedProvider = 'Google Gemini';
-            console.log('✓ Analysis completed with Google Gemini');
-          } else {
-            console.error('Google API error:', { requestId, status: aiResponse.status });
+            if (aiResponse.ok) {
+              const aiData = await aiResponse.json();
+              analysis = aiData.choices[0].message.content;
+              usedProvider = 'Groq (Llama 3.3)';
+              console.log('✓ Analysis completed with Groq');
+            } else {
+              console.error('Groq API error:', { requestId, status: aiResponse.status });
+            }
+          } catch (error) {
+            console.error('Groq failed:', { requestId, error: error instanceof Error ? error.message : 'Unknown error' });
           }
-        } catch (error) {
-          console.error('Google Gemini failed:', { requestId, error: error instanceof Error ? error.message : 'Unknown error' });
         }
       }
-    }
 
-    // Priority 3: Groq (user's key)
-    if (!analysis) {
-      const GROQ_API_KEY = Deno.env.get('GROQ_API_KEY');
-      if (GROQ_API_KEY) {
-        try {
-          console.log('Trying Groq API...');
-          const aiResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${GROQ_API_KEY}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              model: 'llama-3.3-70b-versatile',
-              messages: [
-                { role: 'system', content: systemPrompt },
-                { role: 'user', content: userMessage }
-              ],
-              max_tokens: 1000,
-              temperature: 0.7,
-            }),
-          });
-
-          if (aiResponse.ok) {
-            const aiData = await aiResponse.json();
-            analysis = aiData.choices[0].message.content;
-            usedProvider = 'Groq (Llama 3.3)';
-            console.log('✓ Analysis completed with Groq');
-          } else {
-            console.error('Groq API error:', { requestId, status: aiResponse.status });
-          }
-        } catch (error) {
-          console.error('Groq failed:', { requestId, error: error instanceof Error ? error.message : 'Unknown error' });
-        }
+      // Claude Sonnet 4.5 - заглушка (вимкнено)
+      // TODO: Додати Claude Sonnet 4.5 пізніше
+      if (!analysis) {
+        console.log('Claude Sonnet 4.5 currently disabled (placeholder)');
       }
-    }
-
-    // Claude Sonnet 4.5 - заглушка (вимкнено)
-    // TODO: Додати Claude Sonnet 4.5 пізніше
-    if (!analysis) {
-      console.log('Claude Sonnet 4.5 currently disabled (placeholder)');
-    }
 
       // If all providers failed
       if (!analysis) {
