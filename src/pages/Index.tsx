@@ -10,6 +10,7 @@ import { getLatestPrices, updatePricesFromAPI } from "@/lib/forexDB";
 import { getFeaturesBySymbol, getTrendMatrix, calculateTrendStrength, getOverallTrend, fullUpdate, getMarketMode, generateRangeSignals } from "@/lib/indicators";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMarketStatus } from "@/hooks/useMarketStatus";
+import { supabase } from "@/integrations/supabase/client";
 
 // Mock data for demo - replace with actual API calls
 const generateMockData = () => {
@@ -170,6 +171,7 @@ const realData = await Promise.all(symbols.map(async (symbol) => {
     trend: overallTrend,
     strength,
     signals,
+    aiAnalysis: null, // буде заповнено пізніше, якщо режим Hybrid
   };
 }));
 
@@ -178,6 +180,68 @@ console.log(`✅ Valid data received: ${validData.length}/${symbols.length} pair
 
 if (validData.length > 0) {
   setPairData(validData as any);
+  
+  // Якщо режим Hybrid і користувач увійшов — запитуємо AI-аналіз
+  if (mode === "hybrid" && user) {
+    setAiActive(true);
+    console.log("🤖 Запускаємо AI-аналіз для Hybrid режиму...");
+    
+    // Викликаємо AI для кожної пари паралельно
+    const aiPromises = validData.map(async (pairInfo: any) => {
+      try {
+        const { data: aiData, error: aiError } = await supabase.functions.invoke('analyze-forex-ai', {
+          body: {
+            pairData: {
+              pair: pairInfo.pair,
+              price: pairInfo.price,
+              trend: pairInfo.trend,
+              strength: pairInfo.strength,
+              trend_matrix: pairInfo.trend_matrix,
+            }
+          }
+        });
+
+        if (aiError) {
+          console.error(`AI error for ${pairInfo.pair}:`, aiError);
+          if (aiError.message?.includes('402')) {
+            toast.error("Недостатньо кредитів", {
+              description: "AI-аналіз недоступний. Поповніть баланс кредитів.",
+            });
+          } else if (aiError.message?.includes('429')) {
+            toast.error("Ліміт запитів", {
+              description: "Забагато запитів. Спробуйте пізніше.",
+            });
+          }
+          return { pair: pairInfo.pair, analysis: null };
+        }
+
+        console.log(`✅ AI analysis for ${pairInfo.pair}:`, aiData);
+        return { pair: pairInfo.pair, analysis: aiData?.analysis || null };
+      } catch (err) {
+        console.error(`AI exception for ${pairInfo.pair}:`, err);
+        return { pair: pairInfo.pair, analysis: null };
+      }
+    });
+
+    const aiResults = await Promise.all(aiPromises);
+    
+    // Оновлюємо дані з AI-аналізом
+    setPairData(prev => 
+      prev.map(p => {
+        const aiResult = aiResults.find(r => r.pair === p.pair);
+        return { ...p, aiAnalysis: aiResult?.analysis || null };
+      })
+    );
+    
+    setAiActive(false);
+    const successCount = aiResults.filter(r => r.analysis).length;
+    if (successCount > 0) {
+      toast.success("AI-аналіз завершено", {
+        description: `Проаналізовано ${successCount}/${validData.length} пар`,
+      });
+    }
+  }
+  
   toast.success("Дані оновлено", {
     description: `Оновлено ${validData.length} пар з реальними індикаторами`,
   });

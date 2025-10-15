@@ -23,6 +23,7 @@ interface PairData {
   trend: "↗" | "↘" | "→";
   strength: number;
   signals: Signal[];
+  aiAnalysis?: string | null;
 }
 
 const getTrendColor = (trend: "↗" | "↘" | "→") => {
@@ -38,7 +39,7 @@ const getTrendBg = (trend: "↗" | "↘" | "→") => {
 };
 
 export const PairCard = ({ data, mode }: { data: PairData; mode: "rule" | "hybrid" }) => {
-  const { pair, price, trend_matrix, trend, strength, signals } = data;
+  const { pair, price, trend_matrix, trend, strength, signals, aiAnalysis } = data;
   
   // Filter signals based on mode
   const displaySignals = mode === "rule" 
@@ -133,6 +134,19 @@ export const PairCard = ({ data, mode }: { data: PairData; mode: "rule" | "hybri
       {displaySignals.length === 0 && (
         <div className="text-center text-sm text-muted-foreground py-4">
           Немає активних сигналів
+        </div>
+      )}
+
+      {/* AI Analysis */}
+      {mode === "hybrid" && aiAnalysis && (
+        <div className="dotted-border-t pt-4 mt-4">
+          <div className="text-xs uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-success animate-pulse" />
+            AI Рекомендація
+          </div>
+          <div className="text-sm whitespace-pre-wrap bg-muted/30 p-3 rounded">
+            {aiAnalysis}
+          </div>
         </div>
       )}
     </div>
