@@ -161,7 +161,7 @@ serve(async (req) => {
           // Smart delay: 
           // LOAD (перше завантаження) - 12 сек (безпечно для API)
           // UPDATE (оновлення 2 свічок) - 2 сек (швидко)
-          const delay = needsLoad ? 12000 : 2000;
+          const delay = needsLoad ? 15000 : 2000;
           await new Promise(resolve => setTimeout(resolve, delay));
 
         } catch (error) {
@@ -174,6 +174,20 @@ serve(async (req) => {
           });
           await new Promise(resolve => setTimeout(resolve, 2000));
         }
+      }
+      // After completing all timeframes for this symbol, trigger indicators calculation
+      console.log(`[FetchOHLCV] Triggering calculate-indicators for ${symbol}...`);
+      try {
+        const { error: calcErrSymbol } = await supabase.functions.invoke('calculate-indicators', {
+          body: { symbol }
+        });
+        if (calcErrSymbol) {
+          console.error(`[FetchOHLCV] Error calling calculate-indicators for ${symbol}:`, calcErrSymbol);
+        } else {
+          console.log(`[FetchOHLCV] ✅ Indicators calculation triggered for ${symbol}`);
+        }
+      } catch (e) {
+        console.error(`[FetchOHLCV] Exception calling calculate-indicators for ${symbol}:`, e);
       }
     }
 
