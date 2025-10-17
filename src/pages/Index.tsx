@@ -12,77 +12,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useMarketStatus } from "@/hooks/useMarketStatus";
 import { supabase } from "@/integrations/supabase/client";
 
-// Mock data for demo - replace with actual API calls
-const generateMockData = () => {
-  const pairs = [
-    "EUR/USD",
-    "GBP/USD",
-    "USD/JPY",
-    "USD/CHF",
-    "AUD/USD",
-    "NZD/USD",
-    "USD/CAD",
-  ];
-
-  const trends: Array<"↗" | "↘" | "→"> = ["↗", "↘", "→"];
-  
-  return pairs.map((pair) => {
-    const trend = trends[Math.floor(Math.random() * trends.length)];
-    const hasSell = Math.random() > 0.5;
-    const hasRule = Math.random() > 0.3;
-    const hasAI = Math.random() > 0.4;
-
-    const basePrice = pair.includes("JPY") ? 145.5 : 1.16;
-    const price = basePrice + (Math.random() - 0.5) * 0.02;
-
-    const signals = [];
-    
-    if (hasSell && hasRule) {
-      signals.push({
-        type: "sell_stop",
-        entry: price - 0.002,
-        sl: price + 0.001,
-        tp1: price - 0.004,
-        tp2: price - 0.006,
-        prob: 55,
-        source: "Rule-Only",
-        notes: Math.random() > 0.5 ? "Ретест нижньої межі діапазону, ADX>20" : undefined,
-      });
-    }
-
-    if (hasSell && hasAI) {
-      signals.push({
-        type: "sell_stop",
-        entry: price - 0.002,
-        sl: price + 0.001,
-        tp1: price - 0.004,
-        tp2: price - 0.006,
-        prob: 59,
-        source: "Rule+AI",
-        notes: "Тренд узгоджений D1/H4, ADX > 20",
-      });
-    }
-
-    return {
-      pair,
-      price,
-      trend_matrix: {
-        D1: trends[Math.floor(Math.random() * trends.length)],
-        H4: trends[Math.floor(Math.random() * trends.length)],
-        H1: trends[Math.floor(Math.random() * trends.length)],
-        M15: trends[Math.floor(Math.random() * trends.length)],
-      },
-      trend,
-      strength: Math.floor(Math.random() * 40) + 40,
-      signals,
-    };
-  });
-};
-
 const Index = () => {
   const [mode, setMode] = useState<"rule" | "hybrid">("hybrid");
   const [lastUpdate, setLastUpdate] = useState("");
-  const [pairData, setPairData] = useState(generateMockData());
+  const [pairData, setPairData] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [aiActive, setAiActive] = useState(false);
   const [nextRefreshIn, setNextRefreshIn] = useState(300); // 5 minutes in seconds
@@ -92,101 +25,54 @@ const Index = () => {
   const { user, signInWithGoogle, credits } = useAuth();
   const marketStatus = useMarketStatus();
 
-  // Fetch data from database with real indicators
   const fetchRealData = async () => {
     setIsLoading(true);
-    console.log("🔄 Fetching Forex data with indicators...");
     
     try {
       const symbols = ["EUR/USD", "GBP/USD", "USD/JPY", "USD/CHF", "AUD/USD", "NZD/USD", "USD/CAD"];
-      console.log("📊 Fetching data for pairs:", symbols);
-      
-      // Get latest prices from database
       const dbPrices = await getLatestPrices(symbols);
-      console.log("✅ DB prices:", dbPrices);
       
-const realData = await Promise.all(symbols.map(async (symbol) => {
-  const priceData = dbPrices[symbol];
-  
-  if (!priceData) {
-    console.warn(`⚠️ No price data for ${symbol} in DB`);
-    return null;
-  }
+      const realData = await Promise.all(symbols.map(async (symbol) => {
+        const priceData = dbPrices[symbol];
+        if (!priceData) return null;
 
-  // Get real features from database
-  const features = await getFeaturesBySymbol(symbol);
-  console.log(`📊 Features for ${symbol}:`, features);
-  
-  // Get trend matrix from real indicators
-  const trend_matrix = getTrendMatrix(features);
-  const overallTrend = getOverallTrend(trend_matrix);
-  const strength = calculateTrendStrength(trend_matrix);
-  const marketMode = getMarketMode(features);
+        const features = await getFeaturesBySymbol(symbol);
+        const trend_matrix = getTrendMatrix(features);
+        const overallTrend = getOverallTrend(trend_matrix);
+        const strength = calculateTrendStrength(trend_matrix);
+        const marketMode = getMarketMode(features);
+        const price = priceData.price;
+        
+        const tfForSignals = features.M15 ?? features.H1;
+        const signals = tfForSignals 
+          ? generateRangeSignals(price, tfForSignals, mode, { 
+              marketMode, 
+              overallTrend, 
+              strength 
+            })
+          : [];
 
-  const price = priceData.price;
-  let signals: any[] = [];
+        return {
+          pair: symbol,
+          price,
+          trend_matrix,
+          trend: overallTrend,
+          strength,
+          signals,
+          aiAnalysis: null,
+        };
+      }));
 
-  const tfForSignals = features.M15 ?? features.H1 ?? null;
+      const validData = realData.filter(d => d !== null);
 
-  if (tfForSignals) {
-    if (marketMode === "trending" && (tfForSignals.adx_14 ?? 0) >= 15 && overallTrend !== '→') {
-      // TRENDING MODE - Trend following signals
-      const isBuy = overallTrend === '↗';
-      signals.push({
-        type: isBuy ? "buy_stop" : "sell_stop",
-        entry: isBuy ? price + 0.002 : price - 0.002,
-        sl: isBuy ? price - 0.001 : price + 0.001,
-        tp1: isBuy ? price + 0.004 : price - 0.004,
-        tp2: isBuy ? price + 0.006 : price - 0.006,
-        prob: Math.min(50 + strength, 75),
-        source: "Rule-Only",
-        notes: `Тренд: ADX ${tfForSignals.adx_14?.toFixed(1)}, RSI ${tfForSignals.rsi_14?.toFixed(1)}`,
-      });
-      if (mode === "hybrid") {
-        signals.push({
-          type: isBuy ? "buy_stop" : "sell_stop",
-          entry: isBuy ? price + 0.002 : price - 0.002,
-          sl: isBuy ? price - 0.001 : price + 0.001,
-          tp1: isBuy ? price + 0.004 : price - 0.004,
-          tp2: isBuy ? price + 0.006 : price - 0.006,
-          prob: Math.min(60 + strength, 85),
-          source: "Rule+AI",
-          notes: `Тренд узгоджений ${Object.values(trend_matrix).filter(t => t === overallTrend).length}/4 ТФ`,
-        });
-      }
-    } else {
-      // RANGE MODE - завжди генеруємо range сигнали, якщо немає сильного тренду
-      signals = generateRangeSignals(price, tfForSignals, mode);
-      console.log(`📊 ${symbol}: Range signals generated (ADX: ${tfForSignals.adx_14?.toFixed(1)})`);
-    }
-  } else {
-    console.log(`⚠️ ${symbol}: Missing M15 and H1 features`);
-  }
-
-  return {
-    pair: symbol,
-    price,
-    trend_matrix,
-    trend: overallTrend,
-    strength,
-    signals,
-    aiAnalysis: null, // буде заповнено пізніше, якщо режим Hybrid
-  };
-}));
-
-const validData = realData.filter(d => d !== null);
-console.log(`✅ Valid data received: ${validData.length}/${symbols.length} pairs`);
-
-if (validData.length > 0) {
-  setPairData(validData as any);
-  
-  // Якщо режим Hybrid і користувач увійшов — запитуємо AI-аналіз
-  if (mode === "hybrid" && user) {
-    setAiActive(true);
-    console.log("🤖 Запускаємо AI-аналіз для Hybrid режиму...");
-    
-    // Викликаємо AI для кожної пари паралельно
-    const aiPromises = validData.map(async (pairInfo: any) => {
+      if (validData.length > 0) {
+        setPairData(validData as any);
+        
+        // AI аналіз для Hybrid режиму
+        if (mode === "hybrid" && user) {
+          setAiActive(true);
+          
+          const aiPromises = validData.map(async (pairInfo: any) => {
       try {
         const { data: aiData, error: aiError } = await supabase.functions.invoke('analyze-forex-ai', {
           body: {
@@ -200,9 +86,8 @@ if (validData.length > 0) {
           }
         });
 
-        if (aiError) {
-          console.error(`AI error for ${pairInfo.pair}:`, aiError);
-          if (aiError.message?.includes('402')) {
+          if (aiError) {
+            if (aiError.message?.includes('402')) {
             toast.error("Недостатньо кредитів", {
               description: "AI-аналіз недоступний. Поповніть баланс кредитів.",
             });
@@ -211,63 +96,57 @@ if (validData.length > 0) {
               description: "Забагато запитів. Спробуйте пізніше.",
             });
           }
+            return { pair: pairInfo.pair, analysis: null };
+          }
+
+          return { pair: pairInfo.pair, analysis: aiData?.analysis || null };
+        } catch (err) {
           return { pair: pairInfo.pair, analysis: null };
         }
-
-        console.log(`✅ AI analysis for ${pairInfo.pair}:`, aiData);
-        return { pair: pairInfo.pair, analysis: aiData?.analysis || null };
-      } catch (err) {
-        console.error(`AI exception for ${pairInfo.pair}:`, err);
-        return { pair: pairInfo.pair, analysis: null };
-      }
-    });
-
-    const aiResults = await Promise.all(aiPromises);
-    
-    // Оновлюємо дані з AI-аналізом
-    setPairData(prev => 
-      prev.map(p => {
-        const aiResult = aiResults.find(r => r.pair === p.pair);
-        return { ...p, aiAnalysis: aiResult?.analysis || null };
-      })
-    );
-    
-    setAiActive(false);
-    const successCount = aiResults.filter(r => r.analysis).length;
-    if (successCount > 0) {
-      toast.success("AI-аналіз завершено", {
-        description: `Проаналізовано ${successCount}/${validData.length} пар`,
       });
+
+          const aiResults = await Promise.all(aiPromises);
+          
+          setPairData(prev => 
+            prev.map(p => {
+              const aiResult = aiResults.find(r => r.pair === p.pair);
+              return { ...p, aiAnalysis: aiResult?.analysis || null };
+            })
+          );
+          
+          setAiActive(false);
+          const successCount = aiResults.filter(r => r.analysis).length;
+          if (successCount > 0) {
+            toast.success("AI-аналіз завершено", {
+              description: `Проаналізовано ${successCount}/${validData.length} пар`,
+            });
+          }
+        }
+        
+        toast.success("Дані оновлено", {
+          description: `Оновлено ${validData.length} пар`,
+        });
+      } else {
+        throw new Error("Недостатньо даних у базі");
+      }
+    } catch (error) {
+      toast.error("Помилка завантаження даних", {
+        description: "Спробуйте завантажити історію вручну",
+      });
+      
+      if (!autoRecovered) {
+        const res = await fullUpdate();
+        setAutoRecovered(true);
+        if (res.success) {
+          await fetchRealData();
+          return;
+        }
+      }
+    } finally {
+      setIsLoading(false);
     }
-  }
-  
-  toast.success("Дані оновлено", {
-    description: `Оновлено ${validData.length} пар з реальними індикаторами`,
-  });
-} else {
-  throw new Error("No valid data in database");
-}
-} catch (error) {
-  console.error("❌ Error fetching data:", error);
-  toast("Використовуються демо-дані", {
-    description: "База даних порожня або дані недостатні. Спробую завантажити історію автоматично...",
-  });
-  if (!autoRecovered) {
-    const res = await fullUpdate();
-    setAutoRecovered(true);
-    if (res.success) {
-      await fetchRealData();
-      return;
-    }
-  }
-  setPairData(generateMockData());
-} finally {
-  setIsLoading(false);
-  console.log("🏁 Fetch complete");
-}
   };
 
-  // Full update: fetch OHLCV + calculate indicators
   const handleFullUpdate = async () => {
     setIsLoading(true);
     setAiActive(true);
