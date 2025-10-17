@@ -154,11 +154,10 @@ const realData = await Promise.all(symbols.map(async (symbol) => {
           notes: `Тренд узгоджений ${Object.values(trend_matrix).filter(t => t === overallTrend).length}/4 ТФ`,
         });
       }
-    } else if (marketMode === "ranging") {
-      // RANGING MODE - Range trading signals even if ATR≈0
-      signals = generateRangeSignals(price, tfForSignals, mode);
     } else {
-      console.log(`⚠️ ${symbol}: Insufficient trend strength for signals`);
+      // RANGE MODE - завжди генеруємо range сигнали, якщо немає сильного тренду
+      signals = generateRangeSignals(price, tfForSignals, mode);
+      console.log(`📊 ${symbol}: Range signals generated (ADX: ${tfForSignals.adx_14?.toFixed(1)})`);
     }
   } else {
     console.log(`⚠️ ${symbol}: Missing M15 and H1 features`);
