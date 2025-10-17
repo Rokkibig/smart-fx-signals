@@ -182,33 +182,36 @@ export const generateRangeSignals = (
   }
   
   // Range mode - торгівля від рівнів
-  const source = mode === "rule" ? "Rule-Only" : "Hybrid";
-  
-  // BUY від підтримки
-  const buyProb = rsi_14 < 40 ? 75 : rsi_14 < 50 ? 65 : 55;
-  signals.push({
-    type: "buy_limit",
-    entry: pivot_s1,
-    sl: pivot_s2 || (pivot_s1 - slDistance),
-    tp1: pivot_pp,
-    tp2: pivot_r1,
-    prob: buyProb,
-    source,
-    notes: `S1→PP, RSI: ${rsi_14.toFixed(0)}`,
-  });
-  
-  // SELL від опору
-  const sellProb = rsi_14 > 60 ? 75 : rsi_14 > 50 ? 65 : 55;
-  signals.push({
-    type: "sell_limit",
-    entry: pivot_r1,
-    sl: pivot_r2 || (pivot_r1 + slDistance),
-    tp1: pivot_pp,
-    tp2: pivot_s1,
-    prob: sellProb,
-    source,
-    notes: `R1→PP, RSI: ${rsi_14.toFixed(0)}`,
-  });
+  // В hybrid режимі range-сигнали не генеруємо - чекаємо AI
+  if (mode === "rule") {
+    const source = "Rule-Only";
+    
+    // BUY від підтримки
+    const buyProb = rsi_14 < 40 ? 75 : rsi_14 < 50 ? 65 : 55;
+    signals.push({
+      type: "buy_limit",
+      entry: pivot_s1,
+      sl: pivot_s2 || (pivot_s1 - slDistance),
+      tp1: pivot_pp,
+      tp2: pivot_r1,
+      prob: buyProb,
+      source,
+      notes: `S1→PP, RSI: ${rsi_14.toFixed(0)}`,
+    });
+    
+    // SELL від опору
+    const sellProb = rsi_14 > 60 ? 75 : rsi_14 > 50 ? 65 : 55;
+    signals.push({
+      type: "sell_limit",
+      entry: pivot_r1,
+      sl: pivot_r2 || (pivot_r1 + slDistance),
+      tp1: pivot_pp,
+      tp2: pivot_s1,
+      prob: sellProb,
+      source,
+      notes: `R1→PP, RSI: ${rsi_14.toFixed(0)}`,
+    });
+  }
   
   return signals;
 };
