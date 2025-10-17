@@ -126,7 +126,7 @@ export const getMarketMode = (features: Record<string, ForexFeatures>): "trendin
   return "ranging";
 };
 
-// Generate range trading signals (ПОСЛАБЛЕНІ правила для більше сигналів)
+// Generate range trading signals - завжди генерує сигнали
 export const generateRangeSignals = (
   price: number,
   features: ForexFeatures,
@@ -145,86 +145,70 @@ export const generateRangeSignals = (
   
   if (!features) return signals;
   
-  const { pivot_s1, pivot_s2, pivot_r1, pivot_r2, pivot_pp, rsi_14 } = features;
+  const { pivot_s1, pivot_s2, pivot_r1, pivot_r2, pivot_pp, rsi_14, adx_14 } = features;
   const atr = features.atr_14 || 0;
   const symbol = features.symbol || '';
   const isJpy = symbol.includes('/JPY') || symbol.endsWith('JPY');
-  const pipStep = isJpy ? 0.05 : 0.0005; // ~5 pips fallback
-  const thresholdDistance = Math.max((atr || 0) * 1.5, pipStep * 3);
-  const slDistance = Math.max((atr || 0) * 1.5, pipStep * 3);
-  const entryOffset = Math.max((atr || 0) * 0.3, pipStep);
+  const pipStep = isJpy ? 0.05 : 0.0005;
+  const slDistance = Math.max((atr || 0) * 2, pipStep * 5);
   
-  const nearS1 = Math.abs(price - pivot_s1) < thresholdDistance;
-  const nearS2 = Math.abs(price - pivot_s2) < thresholdDistance;
-  const nearR1 = Math.abs(price - pivot_r1) < thresholdDistance;
-  const nearR2 = Math.abs(price - pivot_r2) < thresholdDistance;
-  const nearPP = Math.abs(price - pivot_pp) < thresholdDistance;
+  const source = mode === "rule" ? "Rule-Only" : "Hybrid";
   
-  // Buy from support (RSI < 50 замість < 40)
-  if ((nearS1 || nearS2) && rsi_14 < 50) {
-    const support = nearS1 ? pivot_s1 : pivot_s2;
-    signals.push({
-      type: "buy_limit",
-      entry: support,
-      sl: support - slDistance,
-      tp1: pivot_pp,
-      tp2: pivot_r1,
-      prob: nearS2 ? 65 : 60,
-      source: "Rule-Only",
-      notes: `Range: Buy від підтримки S${nearS2 ? '2' : '1'}, RSI: ${rsi_14.toFixed(1)}`
-    });
-  }
+  // ЗАВЖДИ генеруємо BUY сигнал від підтримки
+  let buyProb = 55;
+  if (rsi_14 < 40) buyProb = 75;
+  else if (rsi_14 < 50) buyProb = 65;
   
-  // Sell from resistance (RSI > 50 замість > 60)
-  if ((nearR1 || nearR2) && rsi_14 > 50) {
-    const resistance = nearR1 ? pivot_r1 : pivot_r2;
-    signals.push({
-      type: "sell_limit",
-      entry: resistance,
-      sl: resistance + slDistance,
-      tp1: pivot_pp,
-      tp2: pivot_s1,
-      prob: nearR2 ? 65 : 60,
-      source: "Rule-Only",
-      notes: `Range: Sell від опору R${nearR2 ? '2' : '1'}, RSI: ${rsi_14.toFixed(1)}`
-    });
-  }
+  signals.push({
+    type: "buy_limit",
+    entry: pivot_s1,
+    sl: pivot_s2 || (pivot_s1 - slDistance),
+    tp1: pivot_pp,
+    tp2: pivot_r1,
+    prob: buyProb,
+    source: source,
+    notes: `Buy від S1. Поточна ціна: ${price.toFixed(isJpy ? 3 : 5)}, RSI: ${rsi_14.toFixed(0)}`
+  });
   
-  // Buy from pivot point (будь-який RSI < 50)
-  if (nearPP && price < pivot_pp) {
-    signals.push({
-      type: "buy_limit",
-      entry: pivot_pp - entryOffset,
-      sl: pivot_pp - slDistance,
-      tp1: pivot_r1,
-      prob: 55,
-      source: "Rule-Only",
-      notes: `Range: Повернення до PP, RSI: ${rsi_14.toFixed(1)}`
-    });
-  }
+  // ЗАВЖДИ генеруємо SELL сигнал від опору
+  let sellProb = 55;
+  if (rsi_14 > 60) sellProb = 75;
+  else if (rsi_14 > 50) sellProb = 65;
   
-  // Sell from pivot point (будь-який RSI > 50)
-  if (nearPP && price > pivot_pp) {
-    signals.push({
-      type: "sell_limit",
-      entry: pivot_pp + entryOffset,
-      sl: pivot_pp + slDistance,
-      tp1: pivot_s1,
-      prob: 55,
-      source: "Rule-Only",
-      notes: `Range: Повернення до PP, RSI: ${rsi_14.toFixed(1)}`
-    });
-  }
+  signals.push({
+    type: "sell_limit",
+    entry: pivot_r1,
+    sl: pivot_r2 || (pivot_r1 + slDistance),
+    tp1: pivot_pp,
+    tp2: pivot_s1,
+    prob: sellProb,
+    source: source,
+    notes: `Sell від R1. Поточна ціна: ${price.toFixed(isJpy ? 3 : 5)}, RSI: ${rsi_14.toFixed(0)}`
+  });
   
-  // Add hybrid signals if mode is hybrid
-  if (mode === "hybrid" && signals.length > 0) {
-    const baseSignal = signals[0];
-    signals.push({
-      ...baseSignal,
-      prob: baseSignal.prob + 10,
-      source: "Rule+AI",
-      notes: `${baseSignal.notes} + AI підтвердження`
-    });
+  // Додатковий сигнал від PP якщо ADX низький (флет)
+  if (adx_14 < 25) {
+    if (price < pivot_pp) {
+      signals.push({
+        type: "buy_limit",
+        entry: pivot_pp,
+        sl: pivot_s1,
+        tp1: pivot_r1,
+        prob: 60,
+        source: source,
+        notes: `Buy від PP (флет, ADX: ${adx_14.toFixed(0)})`
+      });
+    } else {
+      signals.push({
+        type: "sell_limit",
+        entry: pivot_pp,
+        sl: pivot_r1,
+        tp1: pivot_s1,
+        prob: 60,
+        source: source,
+        notes: `Sell від PP (флет, ADX: ${adx_14.toFixed(0)})`
+      });
+    }
   }
   
   return signals;
