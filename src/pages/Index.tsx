@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/sonner";
 import { generateASCII, copyToClipboard } from "@/utils/asciiExport";
 import { Copy, RefreshCw, Activity } from "lucide-react";
-import { getLatestPrices, updatePricesFromAPI } from "@/lib/forexDB";
+import { getLatestPrices, updatePricesFromAPI, insertPrice } from "@/lib/forexDB";
 import { getFeaturesBySymbol, getTrendMatrix, calculateTrendStrength, getOverallTrend, fullUpdate, getMarketMode, generateRangeSignals } from "@/lib/indicators";
+import { freeForexApi } from "@/lib/freeForexAPI";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMarketStatus } from "@/hooks/useMarketStatus";
 import { supabase } from "@/integrations/supabase/client";
@@ -30,10 +31,47 @@ const Index = () => {
     
     try {
       const symbols = ["EUR/USD", "GBP/USD", "USD/JPY", "USD/CHF", "AUD/USD", "NZD/USD", "USD/CAD"];
-      const dbPrices = await getLatestPrices(symbols);
+      let dbPrices = await getLatestPrices(symbols);
+
+      // Якщо дані відсутні або застарілі (>5 хв) — оновлюємо через бекенд
+      const now = Date.now();
+      const THRESHOLD = 5 * 60 * 1000;
+      const missingOrStale = symbols.filter((s) => {
+        const p = (dbPrices as any)[s];
+        if (!p) return true;
+        const ts = new Date(p.price_timestamp).getTime();
+        return !ts || Number.isNaN(ts) || now - ts > THRESHOLD;
+      });
+
+      if (missingOrStale.length > 0) {
+        await updatePricesFromAPI().catch(() => undefined);
+        dbPrices = await getLatestPrices(symbols);
+      }
+
+      // Фолбек: напряму з публічних провайдерів і збереження в БД
+      for (const s of symbols) {
+        if (!dbPrices[s]) {
+          try {
+            const tick = await freeForexApi.getTick(s);
+            await insertPrice(s, tick.last, tick.bid, tick.ask, tick.volume, tick.spread);
+            (dbPrices as any)[s] = {
+              symbol: s,
+              price: tick.last,
+              bid: tick.bid,
+              ask: tick.ask,
+              volume: tick.volume,
+              spread: tick.spread,
+              source: 'fallback',
+              price_timestamp: new Date().toISOString(),
+            };
+          } catch (_) {
+            // Ігноруємо, просто не покажемо цю пару
+          }
+        }
+      }
       
       const realData = await Promise.all(symbols.map(async (symbol) => {
-        const priceData = dbPrices[symbol];
+        const priceData = (dbPrices as any)[symbol];
         if (!priceData) return null;
 
         const features = await getFeaturesBySymbol(symbol);
@@ -43,7 +81,7 @@ const Index = () => {
         const marketMode = getMarketMode(features);
         const price = priceData.price;
         
-        const tfForSignals = features.M15 ?? features.H1;
+        const tfForSignals = (features as any).M15 ?? (features as any).H1;
         const signals = tfForSignals 
           ? generateRangeSignals(price, tfForSignals, mode, { 
               marketMode, 
