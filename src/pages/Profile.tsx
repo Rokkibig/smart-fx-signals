@@ -1,17 +1,18 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Coins, TrendingUp, LogOut, ArrowLeft } from 'lucide-react';
+import { Coins, TrendingUp, LogOut, ArrowLeft, Crown, Settings } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 
 export default function Profile() {
-  const { user, signOut, credits, refreshCredits } = useAuth();
+  const { user, signOut, credits, refreshCredits, subscription, refreshSubscription, openCustomerPortal } = useAuth();
   const [requestsLog, setRequestsLog] = useState<any[]>([]);
   const [isLoadingRequest, setIsLoadingRequest] = useState(false);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   
 
   useEffect(() => {
@@ -21,7 +22,13 @@ export default function Profile() {
     }
 
     loadRequestsLog();
-  }, [user, navigate]);
+
+    if (searchParams.get('success') === 'true') {
+      toast.success('Підписку оформлено!', { description: 'Дякуємо за підтримку 🎉' });
+      // Refresh subscription after Stripe redirect
+      setTimeout(() => refreshSubscription(), 2000);
+    }
+  }, [user, navigate, searchParams]);
 
   const loadRequestsLog = async () => {
     if (!user) return;
@@ -137,6 +144,46 @@ export default function Profile() {
             </div>
           </Card>
         </div>
+
+        {/* Subscription Card */}
+        <Card className="p-6 mb-8">
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                <Crown className="w-6 h-6 text-primary" />
+              </div>
+              <div>
+                <h3 className="font-semibold">
+                  {subscription.subscribed ? `Тариф ${subscription.tier}` : 'Безкоштовний план'}
+                </h3>
+                {subscription.subscribed && subscription.subscription_end && (
+                  <p className="text-sm text-muted-foreground">
+                    Активний до {new Date(subscription.subscription_end).toLocaleDateString('uk-UA')}
+                  </p>
+                )}
+                {!subscription.subscribed && (
+                  <p className="text-sm text-muted-foreground">
+                    Отримайте Hybrid AI режим від $9/місяць
+                  </p>
+                )}
+              </div>
+            </div>
+            <div className="flex gap-2">
+              {subscription.subscribed ? (
+                <Button variant="outline" onClick={openCustomerPortal}>
+                  <Settings className="w-4 h-4 mr-2" />
+                  Керувати підпискою
+                </Button>
+              ) : (
+                <Button onClick={() => navigate('/pricing')}>
+                  <Crown className="w-4 h-4 mr-2" />
+                  Обрати тариф
+                </Button>
+              )}
+            </div>
+          </div>
+        </Card>
+
 
         {/* Premium AI Button */}
         <Card className="p-6 mb-8 bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20">

@@ -14,7 +14,7 @@ import { useMarketStatus } from "@/hooks/useMarketStatus";
 import { supabase } from "@/integrations/supabase/client";
 
 const Index = () => {
-  const [mode, setMode] = useState<"rule" | "hybrid">("hybrid");
+  const [mode, setMode] = useState<"rule" | "hybrid">("rule");
   const [lastUpdate, setLastUpdate] = useState("");
   const [pairData, setPairData] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -23,8 +23,15 @@ const Index = () => {
   const [autoRecovered, setAutoRecovered] = useState(false);
   const [superMode, setSuperMode] = useState(false); // Режим СУПЕР
   
-  const { user, signInWithGoogle, credits } = useAuth();
+  const { user, signInWithGoogle, credits, subscription } = useAuth();
   const marketStatus = useMarketStatus();
+
+  // Auto-downgrade to rule mode if user loses subscription
+  useEffect(() => {
+    if (mode === "hybrid" && (!user || !subscription.subscribed)) {
+      setMode("rule");
+    }
+  }, [user, subscription.subscribed, mode]);
 
   const fetchRealData = async () => {
     setIsLoading(true);
