@@ -1,17 +1,18 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Coins, TrendingUp, LogOut, ArrowLeft } from 'lucide-react';
+import { Coins, TrendingUp, LogOut, ArrowLeft, Crown, Settings } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 
 export default function Profile() {
-  const { user, signOut, credits, refreshCredits } = useAuth();
+  const { user, signOut, credits, refreshCredits, subscription, refreshSubscription, openCustomerPortal } = useAuth();
   const [requestsLog, setRequestsLog] = useState<any[]>([]);
   const [isLoadingRequest, setIsLoadingRequest] = useState(false);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   
 
   useEffect(() => {
@@ -21,7 +22,13 @@ export default function Profile() {
     }
 
     loadRequestsLog();
-  }, [user, navigate]);
+
+    if (searchParams.get('success') === 'true') {
+      toast.success('Підписку оформлено!', { description: 'Дякуємо за підтримку 🎉' });
+      // Refresh subscription after Stripe redirect
+      setTimeout(() => refreshSubscription(), 2000);
+    }
+  }, [user, navigate, searchParams]);
 
   const loadRequestsLog = async () => {
     if (!user) return;

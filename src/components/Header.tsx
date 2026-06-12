@@ -1,9 +1,10 @@
 import { Button } from "./ui/button";
-import { LogIn, User } from "lucide-react";
+import { LogIn, User, Crown } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { useMarketStatus } from "@/hooks/useMarketStatus";
 import { useState, useEffect } from "react";
+import { toast } from "@/components/ui/sonner";
 
 interface HeaderProps {
   mode: "rule" | "hybrid";
@@ -14,7 +15,7 @@ interface HeaderProps {
 }
 
 export const Header = ({ mode, onModeChange, lastUpdate, autoRefresh, nextRefreshIn }: HeaderProps) => {
-  const { user, signInWithGoogle } = useAuth();
+  const { user, signInWithGoogle, subscription } = useAuth();
   const navigate = useNavigate();
   const marketStatus = useMarketStatus();
   const [countdown, setCountdown] = useState(nextRefreshIn);
@@ -44,23 +45,44 @@ export const Header = ({ mode, onModeChange, lastUpdate, autoRefresh, nextRefres
       <div className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <h1 className="text-3xl tracking-tight">FX Signal Suite</h1>
-          {user ? (
-            <Button variant="outline" size="sm" onClick={() => navigate('/profile')}>
-              <User className="w-4 h-4 mr-2" />
-              Профіль
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={() => navigate('/pricing')}>
+              <Crown className="w-4 h-4 mr-2" />
+              Тарифи
             </Button>
-          ) : (
-            <Button variant="outline" size="sm" onClick={signInWithGoogle}>
-              <LogIn className="w-4 h-4 mr-2" />
-              Увійти з Google
-            </Button>
-          )}
+            {user ? (
+              <Button variant="outline" size="sm" onClick={() => navigate('/profile')}>
+                <User className="w-4 h-4 mr-2" />
+                {subscription.subscribed ? subscription.tier : 'Профіль'}
+              </Button>
+            ) : (
+              <Button variant="outline" size="sm" onClick={signInWithGoogle}>
+                <LogIn className="w-4 h-4 mr-2" />
+                Увійти з Google
+              </Button>
+            )}
+          </div>
         </div>
         <div className="text-sm text-muted-foreground space-y-1">
           <div>Безкоштовні Forex API — Реальні ціни</div>
           <div className="flex items-center gap-4 flex-wrap">
             <button 
-              onClick={() => onModeChange(mode === "rule" ? "hybrid" : "rule")}
+              onClick={() => {
+                if (mode === "rule") {
+                  if (!user) {
+                    toast.error('Увійдіть, щоб увімкнути Hybrid AI');
+                    return;
+                  }
+                  if (!subscription.subscribed) {
+                    toast.error('Hybrid AI доступний у Pro/VIP', {
+                      description: 'Перейдіть на тарифи',
+                      action: { label: 'Тарифи', onClick: () => navigate('/pricing') },
+                    });
+                    return;
+                  }
+                }
+                onModeChange(mode === "rule" ? "hybrid" : "rule");
+              }}
               className="text-foreground hover:text-primary transition-colors"
             >
               Режим: {mode === "rule" ? "Rule-Only" : "Rule+AI"}
