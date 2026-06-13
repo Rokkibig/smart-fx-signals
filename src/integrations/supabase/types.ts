@@ -44,6 +44,45 @@ export type Database = {
         }
         Relationships: []
       }
+      credit_purchases: {
+        Row: {
+          amount_cents: number
+          created_at: string
+          credits_granted: number
+          currency: string
+          id: string
+          package_key: string
+          status: string
+          stripe_payment_intent: string | null
+          stripe_session_id: string
+          user_id: string
+        }
+        Insert: {
+          amount_cents: number
+          created_at?: string
+          credits_granted: number
+          currency?: string
+          id?: string
+          package_key: string
+          status?: string
+          stripe_payment_intent?: string | null
+          stripe_session_id: string
+          user_id: string
+        }
+        Update: {
+          amount_cents?: number
+          created_at?: string
+          credits_granted?: number
+          currency?: string
+          id?: string
+          package_key?: string
+          status?: string
+          stripe_payment_intent?: string | null
+          stripe_session_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       forex_features: {
         Row: {
           adx_14: number | null
