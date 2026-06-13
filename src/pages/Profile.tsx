@@ -147,6 +147,15 @@ export default function Profile() {
               </div>
               <Coins className="w-12 h-12 text-primary/20" />
             </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full mt-4"
+              onClick={() => navigate('/pricing')}
+            >
+              <Coins className="w-4 h-4 mr-2" />
+              Докупити кредити
+            </Button>
           </Card>
         </div>
 
