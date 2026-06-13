@@ -25,8 +25,13 @@ export default function Profile() {
 
     if (searchParams.get('success') === 'true') {
       toast.success('Підписку оформлено!', { description: 'Дякуємо за підтримку 🎉' });
-      // Refresh subscription after Stripe redirect
       setTimeout(() => refreshSubscription(), 2000);
+    }
+    if (searchParams.get('credits_purchased') === 'true') {
+      toast.success('Кредити додано!', { description: 'Дякуємо за покупку 🎉' });
+      // Webhook updates async; refresh a few times
+      setTimeout(() => refreshCredits(), 1500);
+      setTimeout(() => refreshCredits(), 5000);
     }
   }, [user, navigate, searchParams]);
 
@@ -38,7 +43,7 @@ export default function Profile() {
       .select('*')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
-      .limit(10);
+      .limit(20);
 
     if (!error && data) {
       setRequestsLog(data);
