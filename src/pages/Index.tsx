@@ -12,6 +12,7 @@ import { freeForexApi } from "@/lib/freeForexAPI";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMarketStatus } from "@/hooks/useMarketStatus";
 import { supabase } from "@/integrations/supabase/client";
+import { MarketReviewCard } from "@/components/MarketReviewCard";
 
 const Index = () => {
   const [mode, setMode] = useState<"rule" | "hybrid">("rule");
@@ -300,6 +301,8 @@ const Index = () => {
       />
 
         <main className="space-y-6">
+          <MarketReviewCard />
+
           <div className="flex justify-between items-center mb-4">
             <div className="text-xs text-muted-foreground flex items-center gap-2">
               {mode === "hybrid" && aiActive && (
