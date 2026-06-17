@@ -12,5 +12,8 @@ verify_jwt = false
 [functions.analyze-forex-ai]
 verify_jwt = false
 
+[functions.daily-market-review]
+verify_jwt = false
+
 [functions.stripe-webhook]
 verify_jwt = false
