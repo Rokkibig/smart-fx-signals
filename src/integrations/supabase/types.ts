@@ -83,6 +83,36 @@ export type Database = {
         }
         Relationships: []
       }
+      daily_market_reviews: {
+        Row: {
+          ai_provider: string | null
+          created_at: string
+          id: string
+          market_context: string
+          pairs_analysis: Json
+          raw_features: Json | null
+          session: string
+        }
+        Insert: {
+          ai_provider?: string | null
+          created_at?: string
+          id?: string
+          market_context: string
+          pairs_analysis?: Json
+          raw_features?: Json | null
+          session: string
+        }
+        Update: {
+          ai_provider?: string | null
+          created_at?: string
+          id?: string
+          market_context?: string
+          pairs_analysis?: Json
+          raw_features?: Json | null
+          session?: string
+        }
+        Relationships: []
+      }
       forex_features: {
         Row: {
           adx_14: number | null
