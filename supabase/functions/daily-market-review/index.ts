@@ -77,27 +77,30 @@ serve(async (req) => {
 
     const userMessage = `Дані (JSON):\n\`\`\`json\n${JSON.stringify(rawFeatures, null, 2)}\n\`\`\``;
 
-    // 3. Groq
-    const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY");
-    if (!GROQ_API_KEY) throw new Error("GROQ_API_KEY not configured");
+    // 3. Lovable AI Gateway (Gemini 2.5 Flash)
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
-    const aiResp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
-      headers: { Authorization: `Bearer ${GROQ_API_KEY}`, "Content-Type": "application/json" },
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
+        model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userMessage },
         ],
-        temperature: 0.6,
-        max_tokens: 2000,
       }),
     });
 
     if (!aiResp.ok) {
       const errText = await aiResp.text();
-      throw new Error(`Groq error ${aiResp.status}: ${errText}`);
+      if (aiResp.status === 429) throw new Error("Rate limit на Lovable AI Gateway, спробуйте пізніше");
+      if (aiResp.status === 402) throw new Error("Закінчились AI кредити воркспейсу");
+      throw new Error(`Lovable AI error ${aiResp.status}: ${errText}`);
     }
 
     const aiData = await aiResp.json();
@@ -111,8 +114,9 @@ serve(async (req) => {
         market_context: marketContext,
         pairs_analysis: rawFeatures,
         raw_features: rawFeatures,
-        ai_provider: "Groq Llama 3.3 70B",
+        ai_provider: "Lovable AI / Gemini 2.5 Flash",
       })
+
       .select()
       .single();
 
