@@ -299,6 +299,86 @@ export type Database = {
         }
         Relationships: []
       }
+      signal_outcomes: {
+        Row: {
+          adx_at_entry: number | null
+          atr_at_entry: number | null
+          closed_at: string | null
+          confidence: number | null
+          entry: number
+          exit_price: number | null
+          expected_pnl: number | null
+          expires_at: string
+          id: string
+          opened_at: string
+          pair: string
+          realized_pnl: number | null
+          reason: string | null
+          review_id: string | null
+          rr: number | null
+          side: string
+          sl: number
+          status: string
+          surprise_ratio: number | null
+          tp: number
+          trigger: string | null
+        }
+        Insert: {
+          adx_at_entry?: number | null
+          atr_at_entry?: number | null
+          closed_at?: string | null
+          confidence?: number | null
+          entry: number
+          exit_price?: number | null
+          expected_pnl?: number | null
+          expires_at?: string
+          id?: string
+          opened_at?: string
+          pair: string
+          realized_pnl?: number | null
+          reason?: string | null
+          review_id?: string | null
+          rr?: number | null
+          side: string
+          sl: number
+          status?: string
+          surprise_ratio?: number | null
+          tp: number
+          trigger?: string | null
+        }
+        Update: {
+          adx_at_entry?: number | null
+          atr_at_entry?: number | null
+          closed_at?: string | null
+          confidence?: number | null
+          entry?: number
+          exit_price?: number | null
+          expected_pnl?: number | null
+          expires_at?: string
+          id?: string
+          opened_at?: string
+          pair?: string
+          realized_pnl?: number | null
+          reason?: string | null
+          review_id?: string | null
+          rr?: number | null
+          side?: string
+          sl?: number
+          status?: string
+          surprise_ratio?: number | null
+          tp?: number
+          trigger?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "signal_outcomes_review_id_fkey"
+            columns: ["review_id"]
+            isOneToOne: false
+            referencedRelation: "daily_market_reviews"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subscribers: {
         Row: {
           created_at: string
