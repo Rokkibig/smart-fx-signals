@@ -277,6 +277,32 @@ ${bearThesis}
 
     if (insErr) throw insErr;
 
+    // === 7. Логуємо ідеї у signal_outcomes (для самонавчання) ===
+    if (guardedIdeas.length > 0) {
+      const outcomesRows = guardedIdeas.map(g => {
+        const f = rawFeatures[g.pair];
+        const expected_pnl = Math.abs(g.tp - g.entry); // очікуваний рух у ціні (до TP)
+        return {
+          review_id: inserted.id,
+          pair: g.pair,
+          side: g.side,
+          entry: g.entry,
+          sl: g.sl,
+          tp: g.tp,
+          rr: g.rr,
+          confidence: g.confidence,
+          atr_at_entry: f?.H1?.atr ?? null,
+          adx_at_entry: f?.H1?.adx ?? null,
+          trigger: g.trigger,
+          reason: g.reason,
+          expected_pnl,
+          status: "OPEN",
+        };
+      });
+      const { error: soErr } = await supabaseAdmin.from("signal_outcomes").insert(outcomesRows);
+      if (soErr) console.error("signal_outcomes insert error:", soErr);
+    }
+
     return new Response(JSON.stringify({ success: true, review: inserted }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
