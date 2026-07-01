@@ -108,46 +108,169 @@ serve(async (req) => {
 Не вигадуй ціни — бери з live_price та pivot-рівнів.`;
     const bearThesis = await callAI(LOVABLE_API_KEY, MODEL_FAST, bearSys, dataBlock);
 
-    // === 4. MASTER DECISION (сильна модель зважує дебати) ===
-    const masterSys = `Ти Master Decision Agent (Senior Forex Strategist). Тобі дано:
-1. Дані ринку (індикатори + live_price);
-2. Тези Bull-аналітика;
-3. Тези Bear-аналітика.
+    // === 4. MASTER DECISION — тільки bias + idea-кандидати (JSON), без SL/TP ===
+    const masterSys = `Ти Master Decision Agent (Senior Forex Strategist). Дано: дані ринку (індикатори+live_price), тези Bull, тези Bear.
+Твоя роль — ЗВАЖИТИ дебати та повернути СТРОГИЙ JSON. НЕ рахуй SL/TP/RR — це зробить окремий Risk Guard.
 
-Твоя задача — НЕ переказувати їх, а ЗВАЖИТИ дебати: де Bull сильніший, де Bear, де неясно (WAIT).
-Використовуй ВИКЛЮЧНО live_price для entry та D1-пивоти/round-levels для SL/TP.
+Поверни ЛИШЕ валідний JSON без markdown/коментарів у форматі:
+{
+  "context": "2-3 речення про USD, ризик-апетит, сесію",
+  "map": [ { "pair": "EUR/USD", "bias": "BULL|BEAR|RANGE|WAIT", "key_level": 1.0850, "note": "коротко" } ],
+  "ideas": [
+    { "pair": "EUR/USD", "side": "LONG|SHORT", "entry_ref": "live|s1|r1|pp|s2|r2", "trigger": "коротко", "reason": "чому переміг Bull/Bear (1 речення)", "confidence": 0.65 }
+  ],
+  "avoid": "1-2 речення чого уникати"
+}
 
-ФОРМАТ (Markdown, українською, без води):
-
-**🌍 Загальний контекст ринку (${session})**
-2-3 речення: USD-сила, ризик-апетит, нота сесії.
-
-**📊 Карта пар**
-Для кожної з 7 пар: \`PAIR\` — Bias (BULL/BEAR/RANGE/WAIT), live=X.XXXX, ключовий рівень.
-
-**🎯 Топ-3 ідеї сесії (зважений вердикт дебатів)**
-3 буліти з найкращим R:R:
-- **PAIR LONG/SHORT** @ live_price, SL: рівень, TP: рівень, R:R ≈ X, тригер, чому переміг Bull/Bear.
-
-**⚠️ Що уникати**
-1-2 речення.
-
-Якщо дані суперечливі — чесно пиши WAIT.`;
+Правила:
+- map: всі 7 пар.
+- ideas: 2-4 найкращі кандидати (не всі 7).
+- entry_ref: тільки одне з переліку — реальний код рівня, а не число.
+- confidence: 0..1.
+- Якщо все нейтрально — ideas: [].`;
 
     const masterUser = `${dataBlock}\n\n---\n\n${bullThesis}\n\n---\n\n${bearThesis}`;
-    const masterDecision = await callAI(LOVABLE_API_KEY, MODEL_STRONG, masterSys, masterUser);
+    const masterRaw = await callAI(LOVABLE_API_KEY, MODEL_STRONG, masterSys, masterUser);
 
-    // === 5. Фінальний markdown (дебати + вердикт) ===
-    const finalMd = `${masterDecision}\n\n---\n\n<details>\n<summary>🧠 Деталі дебатів (Bull vs Bear)</summary>\n\n${bullThesis}\n\n${bearThesis}\n\n</details>`;
+    // Витягуємо JSON (навіть якщо модель обгорнула у ```json)
+    let master: any = null;
+    try {
+      const jsonMatch = masterRaw.match(/\{[\s\S]*\}/);
+      master = JSON.parse(jsonMatch ? jsonMatch[0] : masterRaw);
+    } catch (_) {
+      master = { context: "Master не повернув валідний JSON", map: [], ideas: [], avoid: "", raw: masterRaw };
+    }
+
+    // === 5. RISK GUARD — детермінований розрахунок SL/TP/RR ===
+    const ADX_MIN = 20;
+    const SL_ATR_MULT = 1.5;
+    const TP_ATR_MULT = 2.5;
+    const MAX_ENTRY_DEVIATION_ATR = 0.5; // entry має бути в межах 0.5*ATR від live
+
+    type GuardedIdea = {
+      pair: string;
+      side: "LONG" | "SHORT";
+      entry: number;
+      sl: number;
+      tp: number;
+      rr: number;
+      trigger: string;
+      reason: string;
+      confidence: number;
+      risk_status: "OK" | "REJECTED";
+      risk_notes: string[];
+    };
+
+    const guardedIdeas: GuardedIdea[] = [];
+    const rejected: Array<{ pair: string; side: string; reason: string }> = [];
+
+    for (const idea of (master.ideas ?? []) as any[]) {
+      const notes: string[] = [];
+      const pair = idea?.pair;
+      const side = (idea?.side || "").toUpperCase();
+      const f = rawFeatures[pair];
+      if (!f || !f.live_price || !f.H1) {
+        rejected.push({ pair, side, reason: "Немає live_price або H1 features" });
+        continue;
+      }
+      const live = f.live_price;
+      const atr = f.H1.atr ?? 0;
+      const adx = f.H1.adx ?? 0;
+      const d1 = f.D1?.pivots ?? {};
+
+      if (side !== "LONG" && side !== "SHORT") {
+        rejected.push({ pair, side, reason: "Невалідний side" });
+        continue;
+      }
+      if (atr <= 0) {
+        rejected.push({ pair, side, reason: "ATR=0" });
+        continue;
+      }
+      if (adx < ADX_MIN) {
+        rejected.push({ pair, side, reason: `ADX ${adx?.toFixed(1)} < ${ADX_MIN} (немає тренду)` });
+        continue;
+      }
+
+      // Визначаємо entry за entry_ref
+      const ref = String(idea?.entry_ref || "live").toLowerCase();
+      const refMap: Record<string, number | undefined> = {
+        live, pp: d1.pp, r1: d1.r1, r2: d1.r2, s1: d1.s1, s2: d1.s2,
+      };
+      let entry = refMap[ref];
+      if (entry === undefined || !isFinite(entry)) {
+        notes.push(`entry_ref=${ref} недоступний, fallback → live`);
+        entry = live;
+      }
+      // Валідація: entry не має бути далеко від live
+      const dev = Math.abs(entry - live);
+      if (dev > MAX_ENTRY_DEVIATION_ATR * atr) {
+        notes.push(`entry ${entry.toFixed(5)} задалеко від live ${live.toFixed(5)} (>${MAX_ENTRY_DEVIATION_ATR}·ATR) → clamp до live`);
+        entry = live;
+      }
+
+      // SL/TP через ATR
+      const dir = side === "LONG" ? 1 : -1;
+      const sl = entry - dir * SL_ATR_MULT * atr;
+      const tp = entry + dir * TP_ATR_MULT * atr;
+      const risk = Math.abs(entry - sl);
+      const reward = Math.abs(tp - entry);
+      const rr = risk > 0 ? reward / risk : 0;
+
+      guardedIdeas.push({
+        pair, side, entry, sl, tp, rr,
+        trigger: idea?.trigger || "",
+        reason: idea?.reason || "",
+        confidence: Number(idea?.confidence ?? 0),
+        risk_status: "OK",
+        risk_notes: notes,
+      });
+    }
+
+    // === 6. Рендер фінального markdown ===
+    const fmt = (n: number) => (isFinite(n) ? n.toFixed(5) : "—");
+    const mapMd = (master.map ?? [])
+      .map((m: any) => `- \`${m.pair}\` — **${m.bias}** @ ${m.key_level ?? "—"} — ${m.note ?? ""}`)
+      .join("\n");
+    const ideasMd = guardedIdeas.length
+      ? guardedIdeas.map(g =>
+          `- **${g.pair} ${g.side}** @ ${fmt(g.entry)} | SL ${fmt(g.sl)} | TP ${fmt(g.tp)} | R:R ${g.rr.toFixed(2)} | conf ${(g.confidence*100).toFixed(0)}%\n  Тригер: ${g.trigger}\n  Обґрунтування: ${g.reason}${g.risk_notes.length ? `\n  _Risk Guard: ${g.risk_notes.join("; ")}_` : ""}`
+        ).join("\n")
+      : "_Немає ідей що пройшли Risk Guard (ADX<20 або немає даних)_";
+    const rejectedMd = rejected.length
+      ? `\n\n**🛡️ Відхилено Risk Guard:**\n` + rejected.map(r => `- ${r.pair} ${r.side}: ${r.reason}`).join("\n")
+      : "";
+
+    const finalMd = `**🌍 Загальний контекст ринку (${session})**
+${master.context ?? "—"}
+
+**📊 Карта пар**
+${mapMd || "—"}
+
+**🎯 Топ-ідеї (пройшли Risk Guard: ADX≥${ADX_MIN}, SL=${SL_ATR_MULT}·ATR, TP=${TP_ATR_MULT}·ATR)**
+${ideasMd}
+
+**⚠️ Що уникати**
+${master.avoid ?? "—"}${rejectedMd}
+
+---
+
+<details>
+<summary>🧠 Деталі дебатів (Bull vs Bear)</summary>
+
+${bullThesis}
+
+${bearThesis}
+
+</details>`;
 
     const { data: inserted, error: insErr } = await supabaseAdmin
       .from("daily_market_reviews")
       .insert({
         session,
         market_context: finalMd,
-        pairs_analysis: rawFeatures,
+        pairs_analysis: { features: rawFeatures, master, guarded_ideas: guardedIdeas, rejected },
         raw_features: rawFeatures,
-        ai_provider: "Lovable AI / Bull+Bear (Flash-Lite) + Master (Gemini 2.5 Pro)",
+        ai_provider: "Lovable AI / Bull+Bear (Flash-Lite) + Master (Gemini 2.5 Pro) + Risk Guard (deterministic TS)",
       })
       .select()
       .single();
