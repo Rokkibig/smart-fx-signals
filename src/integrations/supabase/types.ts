@@ -44,6 +44,51 @@ export type Database = {
         }
         Relationships: []
       }
+      backfill_jobs: {
+        Row: {
+          created_at: string
+          done_bars: number
+          error: string | null
+          est_total_bars: number | null
+          from_ts: string
+          id: string
+          last_ts: string | null
+          status: string
+          symbol: string
+          timeframe: string
+          to_ts: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          done_bars?: number
+          error?: string | null
+          est_total_bars?: number | null
+          from_ts: string
+          id?: string
+          last_ts?: string | null
+          status?: string
+          symbol: string
+          timeframe: string
+          to_ts: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          done_bars?: number
+          error?: string | null
+          est_total_bars?: number | null
+          from_ts?: string
+          id?: string
+          last_ts?: string | null
+          status?: string
+          symbol?: string
+          timeframe?: string
+          to_ts?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       credit_purchases: {
         Row: {
           amount_cents: number
