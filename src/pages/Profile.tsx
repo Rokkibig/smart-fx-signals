@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Coins, TrendingUp, LogOut, ArrowLeft, Crown, Settings } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
+import DataCoverage from '@/components/DataCoverage';
 
 export default function Profile() {
   const { user, signOut, credits, refreshCredits, subscription, refreshSubscription, openCustomerPortal } = useAuth();
