@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Newspaper } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
+import TrackRecord from "@/components/TrackRecord";
 
 interface Review {
   id: string;
@@ -66,6 +67,8 @@ const MarketReview = () => {
           ))}
         </div>
       </div>
+
+      <TrackRecord />
 
       {loading ? (
         <div className="text-sm text-muted-foreground">Завантаження…</div>
