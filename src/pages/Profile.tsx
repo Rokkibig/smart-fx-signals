@@ -223,6 +223,11 @@ export default function Profile() {
           </div>
         </Card>
 
+        {/* Data Coverage */}
+        <div className="mb-8">
+          <DataCoverage />
+        </div>
+
         {/* Requests History */}
         <Card className="p-6">
           <h3 className="text-lg font-semibold mb-4">Історія AI запитів</h3>
