@@ -128,6 +128,84 @@ export type Database = {
         }
         Relationships: []
       }
+      daily_forecasts: {
+        Row: {
+          accuracy_score: number | null
+          actual_direction: string | null
+          actual_move_pips: number | null
+          created_at: string
+          direction: string
+          evaluated_at: string | null
+          evaluation_notes: string | null
+          expected_move_pips: number | null
+          forecast_date: string
+          forecast_horizon_hours: number
+          hit_stop: boolean | null
+          hit_target: boolean | null
+          id: string
+          model_version: string | null
+          news_context: string | null
+          price_at_forecast: number
+          probability: number
+          reasoning: string | null
+          stop_price: number | null
+          symbol: string
+          target_price: number | null
+          technical_snapshot: Json | null
+          updated_at: string
+        }
+        Insert: {
+          accuracy_score?: number | null
+          actual_direction?: string | null
+          actual_move_pips?: number | null
+          created_at?: string
+          direction: string
+          evaluated_at?: string | null
+          evaluation_notes?: string | null
+          expected_move_pips?: number | null
+          forecast_date: string
+          forecast_horizon_hours?: number
+          hit_stop?: boolean | null
+          hit_target?: boolean | null
+          id?: string
+          model_version?: string | null
+          news_context?: string | null
+          price_at_forecast: number
+          probability: number
+          reasoning?: string | null
+          stop_price?: number | null
+          symbol: string
+          target_price?: number | null
+          technical_snapshot?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          accuracy_score?: number | null
+          actual_direction?: string | null
+          actual_move_pips?: number | null
+          created_at?: string
+          direction?: string
+          evaluated_at?: string | null
+          evaluation_notes?: string | null
+          expected_move_pips?: number | null
+          forecast_date?: string
+          forecast_horizon_hours?: number
+          hit_stop?: boolean | null
+          hit_target?: boolean | null
+          id?: string
+          model_version?: string | null
+          news_context?: string | null
+          price_at_forecast?: number
+          probability?: number
+          reasoning?: string | null
+          stop_price?: number | null
+          symbol?: string
+          target_price?: number | null
+          technical_snapshot?: Json | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       daily_market_reviews: {
         Row: {
           ai_provider: string | null
@@ -155,6 +233,48 @@ export type Database = {
           pairs_analysis?: Json
           raw_features?: Json | null
           session?: string
+        }
+        Relationships: []
+      }
+      forecast_stats: {
+        Row: {
+          avg_accuracy: number
+          avg_probability: number
+          correct_direction: number
+          hit_stop_count: number
+          hit_target_count: number
+          id: string
+          last_evaluated_at: string | null
+          recent_mistakes: Json | null
+          symbol: string
+          total_forecasts: number
+          updated_at: string
+        }
+        Insert: {
+          avg_accuracy?: number
+          avg_probability?: number
+          correct_direction?: number
+          hit_stop_count?: number
+          hit_target_count?: number
+          id?: string
+          last_evaluated_at?: string | null
+          recent_mistakes?: Json | null
+          symbol: string
+          total_forecasts?: number
+          updated_at?: string
+        }
+        Update: {
+          avg_accuracy?: number
+          avg_probability?: number
+          correct_direction?: number
+          hit_stop_count?: number
+          hit_target_count?: number
+          id?: string
+          last_evaluated_at?: string | null
+          recent_mistakes?: Json | null
+          symbol?: string
+          total_forecasts?: number
+          updated_at?: string
         }
         Relationships: []
       }
