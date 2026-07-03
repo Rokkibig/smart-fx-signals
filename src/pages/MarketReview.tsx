@@ -85,7 +85,7 @@ const MarketReview = () => {
                 <div className="flex items-center justify-between mb-3 text-sm">
                   <div className="font-medium">{sessionLabels[r.session] ?? r.session}</div>
                   <div className="text-muted-foreground">
-                    {d.toLocaleString("uk-UA")} • {r.ai_provider}
+                    {d.toLocaleString("uk-UA")}
                   </div>
                 </div>
                 <div className="prose prose-sm dark:prose-invert max-w-none">
