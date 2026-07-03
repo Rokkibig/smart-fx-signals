@@ -69,6 +69,7 @@ const MarketReview = () => {
         </div>
       </div>
 
+      <DailyForecasts />
       <TrackRecord />
 
       {loading ? (
