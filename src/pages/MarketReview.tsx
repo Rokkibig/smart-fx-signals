@@ -6,6 +6,7 @@ import { ArrowLeft, Newspaper } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
 import TrackRecord from "@/components/TrackRecord";
+import DailyForecasts from "@/components/DailyForecasts";
 
 interface Review {
   id: string;
