@@ -77,7 +77,6 @@ export const Header = ({ mode, onModeChange, lastUpdate, autoRefresh, nextRefres
           </div>
         </div>
         <div className="text-sm text-muted-foreground space-y-1">
-          <div>Безкоштовні Forex API — Реальні ціни</div>
           <div className="flex items-center gap-4 flex-wrap">
             <button 
               onClick={() => {
