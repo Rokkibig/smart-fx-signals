@@ -7,12 +7,9 @@ export const Footer = () => {
           перед торгівлею. Ризик на угоду ≤ 1–1.5%.
         </p>
         <p>
-          Джерело котирувань: Forex API (live). Новини high-impact: врахована пауза
-          ±30 хв.
+          Котирування — live. Новини high-impact: врахована пауза ±30 хв.
         </p>
-        <p className="pt-2">
-          Timezone: Europe/Berlin (CET) • API: /signals, /matrix, /ascii
-        </p>
+        <p className="pt-2">Timezone: Europe/Berlin (CET)</p>
       </div>
     </footer>
   );
