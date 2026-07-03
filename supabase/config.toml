@@ -15,5 +15,11 @@ verify_jwt = false
 [functions.daily-market-review]
 verify_jwt = false
 
+[functions.generate-daily-forecasts]
+verify_jwt = false
+
+[functions.evaluate-daily-forecasts]
+verify_jwt = false
+
 [functions.stripe-webhook]
 verify_jwt = false

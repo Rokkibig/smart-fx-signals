@@ -44,7 +44,12 @@ export const Header = ({ mode, onModeChange, lastUpdate, autoRefresh, nextRefres
     <header className="dotted-border-b pb-6 mb-8">
       <div className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
-          <h1 className="text-3xl tracking-tight">FX Signal Suite</h1>
+          <button
+            onClick={() => navigate('/')}
+            className="text-3xl tracking-tight hover:text-primary transition-colors text-left"
+          >
+            FX Signal Suite
+          </button>
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" onClick={() => navigate('/market-review')}>
               <Newspaper className="w-4 h-4 mr-2" />
@@ -72,7 +77,6 @@ export const Header = ({ mode, onModeChange, lastUpdate, autoRefresh, nextRefres
           </div>
         </div>
         <div className="text-sm text-muted-foreground space-y-1">
-          <div>Безкоштовні Forex API — Реальні ціни</div>
           <div className="flex items-center gap-4 flex-wrap">
             <button 
               onClick={() => {
