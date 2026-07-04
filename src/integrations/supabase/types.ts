@@ -236,6 +236,129 @@ export type Database = {
         }
         Relationships: []
       }
+      economic_events: {
+        Row: {
+          actual: string | null
+          affected_symbols: string[] | null
+          country: string | null
+          created_at: string
+          currency: string
+          event_time: string
+          external_id: string | null
+          forecast: string | null
+          id: string
+          importance: string
+          previous: string | null
+          processed_at: string | null
+          source: string | null
+          title: string
+          unit: string | null
+          updated_at: string
+        }
+        Insert: {
+          actual?: string | null
+          affected_symbols?: string[] | null
+          country?: string | null
+          created_at?: string
+          currency: string
+          event_time: string
+          external_id?: string | null
+          forecast?: string | null
+          id?: string
+          importance?: string
+          previous?: string | null
+          processed_at?: string | null
+          source?: string | null
+          title: string
+          unit?: string | null
+          updated_at?: string
+        }
+        Update: {
+          actual?: string | null
+          affected_symbols?: string[] | null
+          country?: string | null
+          created_at?: string
+          currency?: string
+          event_time?: string
+          external_id?: string | null
+          forecast?: string | null
+          id?: string
+          importance?: string
+          previous?: string | null
+          processed_at?: string | null
+          source?: string | null
+          title?: string
+          unit?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      forecast_revisions: {
+        Row: {
+          created_at: string
+          event_id: string | null
+          forecast_id: string
+          id: string
+          new_direction: string
+          new_probability: number
+          new_stop_price: number | null
+          new_target_price: number | null
+          prev_direction: string | null
+          prev_probability: number | null
+          price_at_revision: number | null
+          reasoning: string | null
+          symbol: string
+          trigger: string
+        }
+        Insert: {
+          created_at?: string
+          event_id?: string | null
+          forecast_id: string
+          id?: string
+          new_direction: string
+          new_probability: number
+          new_stop_price?: number | null
+          new_target_price?: number | null
+          prev_direction?: string | null
+          prev_probability?: number | null
+          price_at_revision?: number | null
+          reasoning?: string | null
+          symbol: string
+          trigger?: string
+        }
+        Update: {
+          created_at?: string
+          event_id?: string | null
+          forecast_id?: string
+          id?: string
+          new_direction?: string
+          new_probability?: number
+          new_stop_price?: number | null
+          new_target_price?: number | null
+          prev_direction?: string | null
+          prev_probability?: number | null
+          price_at_revision?: number | null
+          reasoning?: string | null
+          symbol?: string
+          trigger?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "forecast_revisions_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "economic_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "forecast_revisions_forecast_id_fkey"
+            columns: ["forecast_id"]
+            isOneToOne: false
+            referencedRelation: "daily_forecasts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       forecast_stats: {
         Row: {
           avg_accuracy: number
