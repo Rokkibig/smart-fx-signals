@@ -7,6 +7,7 @@ import { useNavigate } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
 import TrackRecord from "@/components/TrackRecord";
 import DailyForecasts from "@/components/DailyForecasts";
+import NewsCalendar from "@/components/NewsCalendar";
 
 interface Review {
   id: string;
@@ -70,6 +71,7 @@ const MarketReview = () => {
       </div>
 
       <DailyForecasts />
+      <NewsCalendar />
       <TrackRecord />
 
       {loading ? (
