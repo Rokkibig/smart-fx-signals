@@ -23,3 +23,9 @@ verify_jwt = false
 
 [functions.stripe-webhook]
 verify_jwt = false
+
+[functions.fetch-economic-calendar]
+verify_jwt = false
+
+[functions.revise-forecasts-on-news]
+verify_jwt = false
