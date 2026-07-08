@@ -1,3 +1,5 @@
+import { DemoTradeButton } from "./DemoTradeButton";
+
 interface TrendMatrix {
   D1: "↗" | "↘" | "→";
   H4: "↗" | "↘" | "→";
