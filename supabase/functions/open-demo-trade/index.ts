@@ -146,14 +146,14 @@ serve(async (req) => {
         user_id: user.id,
         pair,
         side,
-        entry: Number(entry),
-        sl: Number(sl),
-        tp: Number(tp),
+        entry: actualEntry,
+        sl: slNum,
+        tp: tpNum,
         lot,
         risk_usd: riskUsd,
         source_type: source_type ?? null,
         source_ref: source_ref ?? null,
-        snapshot: snapshot ?? null,
+        snapshot: { ...(snapshot ?? {}), signal_entry: Number(entry), live_entry: actualEntry },
       })
       .select()
       .single();
