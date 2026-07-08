@@ -6,6 +6,23 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+type OrderType = "buy_limit" | "sell_limit" | "buy_stop" | "sell_stop";
+
+const isPendingTriggered = (orderType: OrderType | undefined, side: "LONG" | "SHORT", live: number, entry: number) => {
+  switch (orderType) {
+    case "buy_limit":
+      return live <= entry;
+    case "sell_limit":
+      return live >= entry;
+    case "buy_stop":
+      return live >= entry;
+    case "sell_stop":
+      return live <= entry;
+    default:
+      return side === "LONG" ? live >= entry : live <= entry;
+  }
+};
+
 // Cron: closes user demo trades hit by TP/SL/expiry and updates their balance.
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -49,6 +66,25 @@ serve(async (req) => {
       const pipSize = String(t.pair).includes("JPY") ? 0.01 : 0.0001;
       const pipValuePerLot = 10;
       const expired = new Date(t.expires_at) <= now;
+      const snapshot = (t.snapshot && typeof t.snapshot === "object") ? t.snapshot : {};
+      const orderType = snapshot.order_type as OrderType | undefined;
+      const demoState = snapshot.demo_state as "PENDING" | "ACTIVE" | undefined;
+
+      if (demoState === "PENDING" && !isPendingTriggered(orderType, t.side, live, entry)) {
+        if (expired) {
+          const { error: upErr } = await supa
+            .from("demo_trades")
+            .update({
+              status: "EXPIRED",
+              exit_price: live,
+              realized_pnl: 0,
+              closed_at: now.toISOString(),
+            })
+            .eq("id", t.id);
+          if (!upErr) updated++;
+        }
+        continue;
+      }
 
       let status: "TP" | "SL" | "EXPIRED" | null = null;
       let exit_price = live;
@@ -61,7 +97,15 @@ serve(async (req) => {
         else if (live >= sl) { status = "SL"; exit_price = sl; }
       }
       if (!status && expired) { status = "EXPIRED"; exit_price = live; }
-      if (!status) continue;
+      if (!status) {
+        if (demoState === "PENDING") {
+          await supa
+            .from("demo_trades")
+            .update({ snapshot: { ...snapshot, demo_state: "ACTIVE", triggered_at: now.toISOString() } })
+            .eq("id", t.id);
+        }
+        continue;
+      }
 
       const priceMoveInPips = (isLong ? exit_price - entry : entry - exit_price) / pipSize;
       const realized = priceMoveInPips * pipValuePerLot * lot;
