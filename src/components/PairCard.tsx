@@ -1,3 +1,5 @@
+import { DemoTradeButton } from "./DemoTradeButton";
+
 interface TrendMatrix {
   D1: "↗" | "↘" | "→";
   H4: "↗" | "↘" | "→";
@@ -125,6 +127,18 @@ export const PairCard = ({ data, mode }: { data: PairData; mode: "rule" | "hybri
                     {signal.notes}
                   </div>
                 )}
+                <div className="pt-2">
+                  <DemoTradeButton
+                    pair={pair}
+                    side={signal.type.includes("buy") ? "LONG" : "SHORT"}
+                    entry={signal.entry}
+                    sl={signal.sl}
+                    tp={signal.tp1}
+                    sourceType="signal"
+                    sourceRef={`${pair}:${signal.type}:${signal.entry}:${signal.sl}:${signal.tp1}`}
+                    snapshot={{ source: signal.source, prob: signal.prob, notes: signal.notes }}
+                  />
+                </div>
               </div>
             </div>
           ))}

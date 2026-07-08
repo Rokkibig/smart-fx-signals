@@ -236,6 +236,105 @@ export type Database = {
         }
         Relationships: []
       }
+      demo_accounts: {
+        Row: {
+          balance: number
+          created_at: string
+          currency: string
+          id: string
+          reset_at: string | null
+          starting_balance: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          balance?: number
+          created_at?: string
+          currency?: string
+          id?: string
+          reset_at?: string | null
+          starting_balance?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          balance?: number
+          created_at?: string
+          currency?: string
+          id?: string
+          reset_at?: string | null
+          starting_balance?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      demo_trades: {
+        Row: {
+          closed_at: string | null
+          created_at: string
+          entry: number
+          exit_price: number | null
+          expires_at: string
+          id: string
+          lot: number
+          opened_at: string
+          pair: string
+          realized_pnl: number | null
+          risk_usd: number
+          side: string
+          sl: number
+          snapshot: Json | null
+          source_ref: string | null
+          source_type: string | null
+          status: string
+          tp: number
+          user_id: string
+        }
+        Insert: {
+          closed_at?: string | null
+          created_at?: string
+          entry: number
+          exit_price?: number | null
+          expires_at?: string
+          id?: string
+          lot: number
+          opened_at?: string
+          pair: string
+          realized_pnl?: number | null
+          risk_usd: number
+          side: string
+          sl: number
+          snapshot?: Json | null
+          source_ref?: string | null
+          source_type?: string | null
+          status?: string
+          tp: number
+          user_id: string
+        }
+        Update: {
+          closed_at?: string | null
+          created_at?: string
+          entry?: number
+          exit_price?: number | null
+          expires_at?: string
+          id?: string
+          lot?: number
+          opened_at?: string
+          pair?: string
+          realized_pnl?: number | null
+          risk_usd?: number
+          side?: string
+          sl?: number
+          snapshot?: Json | null
+          source_ref?: string | null
+          source_type?: string | null
+          status?: string
+          tp?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       economic_events: {
         Row: {
           actual: string | null

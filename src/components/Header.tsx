@@ -1,5 +1,5 @@
 import { Button } from "./ui/button";
-import { LogIn, User, Crown, ImageIcon, Newspaper } from "lucide-react";
+import { LogIn, User, Crown, ImageIcon, Newspaper, LineChart } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { useMarketStatus } from "@/hooks/useMarketStatus";
@@ -92,6 +92,10 @@ export const Header = ({ mode, onModeChange, lastUpdate, autoRefresh, nextRefres
             <Button variant="ghost" size="sm" onClick={() => navigate('/market-review')}>
               <Newspaper className="w-4 h-4 mr-2" />
               Огляд
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => navigate('/demo')}>
+              <LineChart className="w-4 h-4 mr-2" />
+              Демо
             </Button>
             <Button variant="ghost" size="sm" onClick={() => navigate('/chart-analysis')}>
               <ImageIcon className="w-4 h-4 mr-2" />
