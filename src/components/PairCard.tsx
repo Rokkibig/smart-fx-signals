@@ -107,13 +107,25 @@ export const PairCard = ({ data, mode }: { data: PairData; mode: "rule" | "hybri
               className={`p-3 ${getTrendBg(signal.type.includes("buy") ? "↗" : "↘")}`}
             >
               <div className="text-xs space-y-1.5">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-2">
                   <span className="text-muted-foreground uppercase tracking-wide">
                     {signal.source}
                   </span>
-                  <span className="font-medium">
-                    Ймовірність: {signal.prob}%
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">
+                      {signal.prob}%
+                    </span>
+                    <DemoTradeButton
+                      pair={pair}
+                      side={signal.type.includes("buy") ? "LONG" : "SHORT"}
+                      entry={signal.entry}
+                      sl={signal.sl}
+                      tp={signal.tp1}
+                      sourceType="signal"
+                      sourceRef={`${pair}:${signal.type}:${signal.entry}:${signal.sl}:${signal.tp1}`}
+                      snapshot={{ source: signal.source, prob: signal.prob, notes: signal.notes }}
+                    />
+                  </div>
                 </div>
                 <div className="font-medium">
                   {signal.type.includes("buy") ? "Buy" : "Sell"} {signal.type.includes("stop") ? "<" : "@"} {signal.entry.toFixed(5)}
@@ -127,18 +139,6 @@ export const PairCard = ({ data, mode }: { data: PairData; mode: "rule" | "hybri
                     {signal.notes}
                   </div>
                 )}
-                <div className="pt-2">
-                  <DemoTradeButton
-                    pair={pair}
-                    side={signal.type.includes("buy") ? "LONG" : "SHORT"}
-                    entry={signal.entry}
-                    sl={signal.sl}
-                    tp={signal.tp1}
-                    sourceType="signal"
-                    sourceRef={`${pair}:${signal.type}:${signal.entry}:${signal.sl}:${signal.tp1}`}
-                    snapshot={{ source: signal.source, prob: signal.prob, notes: signal.notes }}
-                  />
-                </div>
               </div>
             </div>
           ))}
