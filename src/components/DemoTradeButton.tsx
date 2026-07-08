@@ -113,7 +113,7 @@ export const DemoTradeButton = ({ pair, side, entry, sl, tp, sourceType, sourceR
     <>
       <Button
         type="button"
-        variant="default"
+        variant="outline"
         size="sm"
         onClick={handleOpen}
         title="Торгувати демо"
