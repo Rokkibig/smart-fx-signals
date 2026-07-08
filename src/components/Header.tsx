@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { useMarketStatus } from "@/hooks/useMarketStatus";
 import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/sonner";
 
 interface HeaderProps {
@@ -19,6 +20,35 @@ export const Header = ({ mode, onModeChange, lastUpdate, autoRefresh, nextRefres
   const navigate = useNavigate();
   const marketStatus = useMarketStatus();
   const [countdown, setCountdown] = useState(nextRefreshIn);
+  const [quality, setQuality] = useState<number | null>(null);
+
+  useEffect(() => {
+    const loadQuality = async () => {
+      const { data } = await supabase
+        .from("forecast_stats")
+        .select("avg_accuracy, total_forecasts");
+      if (!data || data.length === 0) return;
+      const totals = data.reduce((s, r: any) => s + (r.total_forecasts || 0), 0);
+      if (!totals) return;
+      const weighted = data.reduce(
+        (s, r: any) => s + (Number(r.avg_accuracy) || 0) * (r.total_forecasts || 0),
+        0
+      );
+      setQuality(Math.round(weighted / totals));
+    };
+    loadQuality();
+    const iv = setInterval(loadQuality, 5 * 60 * 1000);
+    return () => clearInterval(iv);
+  }, []);
+
+  const qualityColor =
+    quality === null
+      ? "text-muted-foreground border-muted-foreground/30"
+      : quality >= 70
+      ? "text-success border-success/40"
+      : quality >= 50
+      ? "text-warning border-warning/40"
+      : "text-destructive border-destructive/40";
 
   useEffect(() => {
     setCountdown(nextRefreshIn);
@@ -44,12 +74,20 @@ export const Header = ({ mode, onModeChange, lastUpdate, autoRefresh, nextRefres
     <header className="dotted-border-b pb-6 mb-8">
       <div className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
-          <button
-            onClick={() => navigate('/')}
-            className="text-3xl tracking-tight hover:text-primary transition-colors text-left"
-          >
-            FX Signal Suite
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => navigate('/')}
+              className="text-3xl tracking-tight hover:text-primary transition-colors text-left"
+            >
+              FX Signal Suite
+            </button>
+            <span
+              title="Якість прогнозів: середня точність за оціненими прогнозами"
+              className={`text-xs px-2 py-0.5 rounded-full border font-mono ${qualityColor}`}
+            >
+              {quality === null ? "— %" : `${quality}%`}
+            </span>
+          </div>
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" onClick={() => navigate('/market-review')}>
               <Newspaper className="w-4 h-4 mr-2" />
