@@ -111,16 +111,18 @@ export const DemoTradeButton = ({ pair, side, entry, sl, tp, sourceType, sourceR
 
   return (
     <>
-      <button
+      <Button
         type="button"
+        variant="default"
+        size="sm"
         onClick={handleOpen}
         title="Торгувати демо"
         aria-label="Торгувати демо"
-        className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/5 px-2.5 py-1 text-[11px] font-medium text-primary transition hover:bg-primary/15 hover:border-primary/60"
+        className="h-7 gap-1 px-2 text-xs [&_svg]:size-3"
       >
-        <Play className="w-3 h-3 fill-current" />
+        <Play className="fill-current" />
         Демо
-      </button>
+      </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-md">
