@@ -1,5 +1,5 @@
 import { Button } from "./ui/button";
-import { LogIn, User, Crown, ImageIcon, Newspaper } from "lucide-react";
+import { LogIn, User, Crown, ImageIcon, Newspaper, LineChart } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { useMarketStatus } from "@/hooks/useMarketStatus";
