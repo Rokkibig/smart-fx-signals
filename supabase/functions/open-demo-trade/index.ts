@@ -73,7 +73,35 @@ serve(async (req) => {
     const balance = Number(account.balance);
     const pipSize = pair.includes("JPY") ? 0.01 : 0.0001;
     const pipValuePerLot = 10; // simplified for *USD pairs
-    const slDistancePips = Math.abs(Number(entry) - Number(sl)) / pipSize;
+
+    // Fetch live price and use it as the actual entry (market execution).
+    // This prevents the trade from closing instantly when the signal's entry
+    // is a pending level and live price is already past SL/TP.
+    const { data: lp } = await admin.rpc("get_latest_forex_price", { p_symbol: pair });
+    const livePrice = lp && lp[0] ? Number(lp[0].price) : NaN;
+    if (!isFinite(livePrice)) {
+      return new Response(JSON.stringify({ error: "Немає котирування для " + pair }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const slNum = Number(sl);
+    const tpNum = Number(tp);
+    const isLong = side === "LONG";
+    // Guard: live price must sit between SL and TP on the correct side.
+    const invalid = isLong
+      ? (livePrice <= slNum || livePrice >= tpNum)
+      : (livePrice >= slNum || livePrice <= tpNum);
+    if (invalid) {
+      return new Response(JSON.stringify({ error: "Ціна вже пройшла рівні SL/TP цього сигналу. Дочекайтесь нового." }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const actualEntry = livePrice;
+    const slDistancePips = Math.abs(actualEntry - slNum) / pipSize;
     if (slDistancePips <= 0) {
       return new Response(JSON.stringify({ error: "SL must differ from entry" }), {
         status: 400,
