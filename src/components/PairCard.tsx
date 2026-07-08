@@ -121,9 +121,10 @@ export const PairCard = ({ data, mode }: { data: PairData; mode: "rule" | "hybri
                       entry={signal.entry}
                       sl={signal.sl}
                       tp={signal.tp1}
+                      orderType={signal.type}
                       sourceType="signal"
                       sourceRef={`${pair}:${signal.type}:${signal.entry}:${signal.sl}:${signal.tp1}`}
-                      snapshot={{ source: signal.source, prob: signal.prob, notes: signal.notes }}
+                      snapshot={{ source: signal.source, prob: signal.prob, notes: signal.notes, order_type: signal.type }}
                     />
                   </div>
                 </div>
