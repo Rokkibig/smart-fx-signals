@@ -18,6 +18,7 @@ interface Props {
   tp: number;
   sourceType?: string;
   sourceRef?: string;
+  orderType?: string;
   snapshot?: Record<string, unknown>;
   balance?: number;
 }
@@ -25,7 +26,7 @@ interface Props {
 const pipSizeFor = (pair: string) => (pair.includes("JPY") ? 0.01 : 0.0001);
 const PIP_VALUE_PER_LOT = 10;
 
-export const DemoTradeButton = ({ pair, side, entry, sl, tp, sourceType, sourceRef, snapshot, balance = 1000 }: Props) => {
+export const DemoTradeButton = ({ pair, side, entry, sl, tp, sourceType, sourceRef, orderType, snapshot, balance = 1000 }: Props) => {
   const { user, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
@@ -81,14 +82,23 @@ export const DemoTradeButton = ({ pair, side, entry, sl, tp, sourceType, sourceR
           lot: mode === "lot" ? Number(lotInput) : undefined,
           source_type: sourceType,
           source_ref: sourceRef,
+          order_type: orderType,
           snapshot,
         },
         headers: { Authorization: `Bearer ${accessToken}` },
       });
       if (error) throw error;
+      if ((data as any)?.reason === "stale_signal") {
+        toast.info("Сигнал уже неактуальний", { description: (data as any).error });
+        setOpen(false);
+        return;
+      }
       if ((data as any)?.error) throw new Error((data as any).error);
-      toast.success("Демо-угода відкрита", {
-        description: `${pair} ${side} · лот ${(data as any).trade.lot}`,
+      const isPending = (data as any)?.demo_state === "PENDING";
+      toast.success(isPending ? "Демо-сесію відкрито" : "Демо-угода активна", {
+        description: isPending
+          ? `${pair} ${side} · очікує входу ${entry.toFixed(5)}`
+          : `${pair} ${side} · лот ${(data as any).trade.lot}`,
         action: { label: "Мої угоди", onClick: () => navigate("/demo") },
       });
       setOpen(false);
