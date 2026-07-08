@@ -83,8 +83,13 @@ const DemoDashboard = () => {
 
   const reset = async () => {
     if (!confirm("Скинути демо-акаунт? Всі відкриті угоди буде закрито.")) return;
-    const { error } = await supabase.functions.invoke("reset-demo-account");
-    if (error) { toast.error("Не вдалося скинути"); return; }
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData?.session?.access_token;
+    if (!accessToken) { toast.error("Сесія не знайдена. Увійдіть ще раз."); return; }
+    const { error } = await supabase.functions.invoke("reset-demo-account", {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (error) { toast.error("Не вдалося скинути", { description: error.message }); return; }
     toast.success("Демо-акаунт скинуто");
     load();
   };
