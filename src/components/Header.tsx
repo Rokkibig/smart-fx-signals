@@ -20,6 +20,35 @@ export const Header = ({ mode, onModeChange, lastUpdate, autoRefresh, nextRefres
   const navigate = useNavigate();
   const marketStatus = useMarketStatus();
   const [countdown, setCountdown] = useState(nextRefreshIn);
+  const [quality, setQuality] = useState<number | null>(null);
+
+  useEffect(() => {
+    const loadQuality = async () => {
+      const { data } = await supabase
+        .from("forecast_stats")
+        .select("avg_accuracy, total_forecasts");
+      if (!data || data.length === 0) return;
+      const totals = data.reduce((s, r: any) => s + (r.total_forecasts || 0), 0);
+      if (!totals) return;
+      const weighted = data.reduce(
+        (s, r: any) => s + (Number(r.avg_accuracy) || 0) * (r.total_forecasts || 0),
+        0
+      );
+      setQuality(Math.round(weighted / totals));
+    };
+    loadQuality();
+    const iv = setInterval(loadQuality, 5 * 60 * 1000);
+    return () => clearInterval(iv);
+  }, []);
+
+  const qualityColor =
+    quality === null
+      ? "text-muted-foreground border-muted-foreground/30"
+      : quality >= 70
+      ? "text-success border-success/40"
+      : quality >= 50
+      ? "text-warning border-warning/40"
+      : "text-destructive border-destructive/40";
 
   useEffect(() => {
     setCountdown(nextRefreshIn);
