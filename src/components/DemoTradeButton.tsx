@@ -67,6 +67,9 @@ export const DemoTradeButton = ({ pair, side, entry, sl, tp, sourceType, sourceR
   const submit = async () => {
     setSubmitting(true);
     try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      if (!accessToken) throw new Error("Сесія не знайдена. Увійдіть ще раз.");
       const { data, error } = await supabase.functions.invoke("open-demo-trade", {
         body: {
           pair,
@@ -80,6 +83,7 @@ export const DemoTradeButton = ({ pair, side, entry, sl, tp, sourceType, sourceR
           source_ref: sourceRef,
           snapshot,
         },
+        headers: { Authorization: `Bearer ${accessToken}` },
       });
       if (error) throw error;
       if ((data as any)?.error) throw new Error((data as any).error);
