@@ -93,6 +93,10 @@ export const Header = ({ mode, onModeChange, lastUpdate, autoRefresh, nextRefres
               <Newspaper className="w-4 h-4 mr-2" />
               Огляд
             </Button>
+            <Button variant="ghost" size="sm" onClick={() => navigate('/demo')}>
+              <LineChart className="w-4 h-4 mr-2" />
+              Демо
+            </Button>
             <Button variant="ghost" size="sm" onClick={() => navigate('/chart-analysis')}>
               <ImageIcon className="w-4 h-4 mr-2" />
               AI-графік
