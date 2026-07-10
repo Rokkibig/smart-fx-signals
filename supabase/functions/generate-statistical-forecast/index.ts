@@ -9,7 +9,7 @@ const corsHeaders = {
 };
 
 const SYMBOLS = ["EUR/USD","GBP/USD","USD/JPY","USD/CHF","AUD/USD","NZD/USD","USD/CAD"];
-const MIN_MATCHES = 30;
+const MIN_MATCHES = 20;
 const MIN_EDGE_PCT = 55;
 
 function pipSize(s: string) { return s.includes("JPY") ? 0.01 : 0.0001; }
