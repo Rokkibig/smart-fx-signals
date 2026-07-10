@@ -15,6 +15,12 @@ interface Forecast {
   price_at_forecast: number;
   target_price: number | null;
   stop_price: number | null;
+  current_entry: number | null;
+  current_target: number | null;
+  current_stop: number | null;
+  status: string;
+  adjustments_count: number;
+  invalidation_reason: string | null;
   expected_move_pips: number | null;
   reasoning: string | null;
   news_context: string | null;
