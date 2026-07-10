@@ -64,23 +64,59 @@ serve(async (req) => {
       const stop = f.current_stop != null ? Number(f.current_stop) : null;
       const origStop = f.stop_price != null ? Number(f.stop_price) : null;
 
-      // 1) TP/SL торкнувся?
+      // 1) TP/SL торкнувся live-ціною — одразу записуємо score, щоб % якості оновився в UI.
       if (dir === "up") {
         if (target != null && live >= target) {
-          await supabase.from("daily_forecasts").update({ status: "HIT_TARGET" }).eq("id", f.id);
+          await supabase.from("daily_forecasts").update({
+            status: "HIT_TARGET",
+            evaluated_at: new Date().toISOString(),
+            actual_direction: "up",
+            actual_move_pips: Number(((live - entry) / pip).toFixed(2)),
+            hit_target: true,
+            hit_stop: false,
+            accuracy_score: 90,
+            evaluation_notes: `TP досягнутий live-ціною ${live}`,
+          }).eq("id", f.id);
           hit++; continue;
         }
         if (stop != null && live <= stop) {
-          await supabase.from("daily_forecasts").update({ status: "HIT_STOP" }).eq("id", f.id);
+          await supabase.from("daily_forecasts").update({
+            status: "HIT_STOP",
+            evaluated_at: new Date().toISOString(),
+            actual_direction: "down",
+            actual_move_pips: Number(((entry - live) / pip).toFixed(2)),
+            hit_target: false,
+            hit_stop: true,
+            accuracy_score: 5,
+            evaluation_notes: `SL спрацював live-ціною ${live}`,
+          }).eq("id", f.id);
           hit++; continue;
         }
       } else if (dir === "down") {
         if (target != null && live <= target) {
-          await supabase.from("daily_forecasts").update({ status: "HIT_TARGET" }).eq("id", f.id);
+          await supabase.from("daily_forecasts").update({
+            status: "HIT_TARGET",
+            evaluated_at: new Date().toISOString(),
+            actual_direction: "down",
+            actual_move_pips: Number(((entry - live) / pip).toFixed(2)),
+            hit_target: true,
+            hit_stop: false,
+            accuracy_score: 90,
+            evaluation_notes: `TP досягнутий live-ціною ${live}`,
+          }).eq("id", f.id);
           hit++; continue;
         }
         if (stop != null && live >= stop) {
-          await supabase.from("daily_forecasts").update({ status: "HIT_STOP" }).eq("id", f.id);
+          await supabase.from("daily_forecasts").update({
+            status: "HIT_STOP",
+            evaluated_at: new Date().toISOString(),
+            actual_direction: "up",
+            actual_move_pips: Number(((live - entry) / pip).toFixed(2)),
+            hit_target: false,
+            hit_stop: true,
+            accuracy_score: 5,
+            evaluation_notes: `SL спрацював live-ціною ${live}`,
+          }).eq("id", f.id);
           hit++; continue;
         }
       }
