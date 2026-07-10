@@ -9,7 +9,7 @@ const corsHeaders = {
 };
 
 const SYMBOLS = ["EUR/USD","GBP/USD","USD/JPY","USD/CHF","AUD/USD","NZD/USD","USD/CAD"];
-const MIN_MATCHES = 30;
+const MIN_MATCHES = 20;
 const MIN_EDGE_PCT = 55;
 
 function pipSize(s: string) { return s.includes("JPY") ? 0.01 : 0.0001; }
@@ -104,40 +104,47 @@ serve(async (req) => {
     const session = sessionOf(new Date());
     const pattern_key = [trend_d1, trend_h4, trend_h1, adx_h1_bucket, rsi_h1_bucket, dist_ema200_atr_bucket, range_pos_bucket, session].join("|");
 
-    // Query similar historical snapshots' outcomes for this symbol
-    const { data: matchSnaps } = await supabase
-      .from("market_snapshots")
-      .select("id")
-      .eq("symbol", symbol)
-      .eq("pattern_key", pattern_key);
-    const ids = (matchSnaps ?? []).map((r: any) => r.id);
+    // Multi-tier pattern search — pool progressively more history until MIN_MATCHES is met.
+    // Each tier writes its own stat_source label so the UI shows how loose the match was.
+    const tiers: Array<{ label: string; sameSymbol: boolean; prefix: string }> = [
+      { label: "exact_pattern",       sameSymbol: true,  prefix: pattern_key },
+      { label: "relaxed_pattern",     sameSymbol: true,  prefix: `${trend_d1}|${trend_h4}|${trend_h1}|${adx_h1_bucket}` },
+      { label: "cross_symbol",        sameSymbol: false, prefix: `${trend_d1}|${trend_h4}|${trend_h1}|${adx_h1_bucket}` },
+      { label: "trend_only",          sameSymbol: false, prefix: `${trend_d1}|${trend_h4}|${trend_h1}` },
+    ];
 
     let outcomes: any[] = [];
-    let stat_source = "exact_pattern";
+    let stat_source = "insufficient";
 
-    if (ids.length >= MIN_MATCHES) {
-      // batched fetch to avoid URL length limits
+    for (const tier of tiers) {
+      let q = supabase
+        .from("market_snapshots")
+        .select("id")
+        .like("pattern_key", `${tier.prefix}%`)
+        .limit(5000);
+      if (tier.sameSymbol) q = q.eq("symbol", symbol);
+      const { data: snaps } = await q;
+      const ids = (snaps ?? []).map((r: any) => r.id);
+      if (ids.length === 0) continue;
+
+      const collected: any[] = [];
       for (let b = 0; b < ids.length; b += 500) {
         const { data: outs } = await supabase
-          .from("snapshot_outcomes").select("direction_24h, move_pips, mfe_pips, mae_pips")
+          .from("snapshot_outcomes")
+          .select("direction_24h, move_pips, mfe_pips, mae_pips")
           .in("snapshot_id", ids.slice(b, b + 500));
-        outcomes = outcomes.concat(outs ?? []);
+        collected.push(...(outs ?? []));
       }
-    } else {
-      // Fallback: relax to trend triplet + adx
-      const relaxedKey = `${trend_d1}|${trend_h4}|${trend_h1}|${adx_h1_bucket}`;
-      const { data: relaxSnaps } = await supabase
-        .from("market_snapshots")
-        .select("id, pattern_key")
-        .eq("symbol", symbol);
-      const relaxIds = (relaxSnaps ?? []).filter((r: any) => r.pattern_key.startsWith(relaxedKey)).map((r: any) => r.id);
-      for (let b = 0; b < relaxIds.length; b += 500) {
-        const { data: outs } = await supabase
-          .from("snapshot_outcomes").select("direction_24h, move_pips, mfe_pips, mae_pips")
-          .in("snapshot_id", relaxIds.slice(b, b + 500));
-        outcomes = outcomes.concat(outs ?? []);
+      if (collected.length >= MIN_MATCHES) {
+        outcomes = collected;
+        stat_source = tier.label;
+        break;
       }
-      stat_source = "relaxed_pattern";
+      // remember best partial for reporting
+      if (collected.length > outcomes.length) {
+        outcomes = collected;
+        stat_source = tier.label;
+      }
     }
 
     const n = outcomes.length;
