@@ -133,7 +133,11 @@ export type Database = {
           accuracy_score: number | null
           actual_direction: string | null
           actual_move_pips: number | null
+          adjustments_count: number
           created_at: string
+          current_entry: number | null
+          current_stop: number | null
+          current_target: number | null
           direction: string
           evaluated_at: string | null
           evaluation_notes: string | null
@@ -143,11 +147,14 @@ export type Database = {
           hit_stop: boolean | null
           hit_target: boolean | null
           id: string
+          invalidation_reason: string | null
+          last_revalidated_at: string | null
           model_version: string | null
           news_context: string | null
           price_at_forecast: number
           probability: number
           reasoning: string | null
+          status: string
           stop_price: number | null
           symbol: string
           target_price: number | null
@@ -158,7 +165,11 @@ export type Database = {
           accuracy_score?: number | null
           actual_direction?: string | null
           actual_move_pips?: number | null
+          adjustments_count?: number
           created_at?: string
+          current_entry?: number | null
+          current_stop?: number | null
+          current_target?: number | null
           direction: string
           evaluated_at?: string | null
           evaluation_notes?: string | null
@@ -168,11 +179,14 @@ export type Database = {
           hit_stop?: boolean | null
           hit_target?: boolean | null
           id?: string
+          invalidation_reason?: string | null
+          last_revalidated_at?: string | null
           model_version?: string | null
           news_context?: string | null
           price_at_forecast: number
           probability: number
           reasoning?: string | null
+          status?: string
           stop_price?: number | null
           symbol: string
           target_price?: number | null
@@ -183,7 +197,11 @@ export type Database = {
           accuracy_score?: number | null
           actual_direction?: string | null
           actual_move_pips?: number | null
+          adjustments_count?: number
           created_at?: string
+          current_entry?: number | null
+          current_stop?: number | null
+          current_target?: number | null
           direction?: string
           evaluated_at?: string | null
           evaluation_notes?: string | null
@@ -193,11 +211,14 @@ export type Database = {
           hit_stop?: boolean | null
           hit_target?: boolean | null
           id?: string
+          invalidation_reason?: string | null
+          last_revalidated_at?: string | null
           model_version?: string | null
           news_context?: string | null
           price_at_forecast?: number
           probability?: number
           reasoning?: string | null
+          status?: string
           stop_price?: number | null
           symbol?: string
           target_price?: number | null
@@ -391,6 +412,62 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      forecast_adjustments: {
+        Row: {
+          atr_used: number | null
+          created_at: string
+          forecast_id: string
+          id: string
+          live_price: number | null
+          new_entry: number | null
+          new_stop: number | null
+          new_target: number | null
+          old_entry: number | null
+          old_stop: number | null
+          old_target: number | null
+          reason: string
+          symbol: string
+        }
+        Insert: {
+          atr_used?: number | null
+          created_at?: string
+          forecast_id: string
+          id?: string
+          live_price?: number | null
+          new_entry?: number | null
+          new_stop?: number | null
+          new_target?: number | null
+          old_entry?: number | null
+          old_stop?: number | null
+          old_target?: number | null
+          reason: string
+          symbol: string
+        }
+        Update: {
+          atr_used?: number | null
+          created_at?: string
+          forecast_id?: string
+          id?: string
+          live_price?: number | null
+          new_entry?: number | null
+          new_stop?: number | null
+          new_target?: number | null
+          old_entry?: number | null
+          old_stop?: number | null
+          old_target?: number | null
+          reason?: string
+          symbol?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "forecast_adjustments_forecast_id_fkey"
+            columns: ["forecast_id"]
+            isOneToOne: false
+            referencedRelation: "daily_forecasts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       forecast_revisions: {
         Row: {
