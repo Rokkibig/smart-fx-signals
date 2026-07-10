@@ -15,6 +15,12 @@ interface Forecast {
   price_at_forecast: number;
   target_price: number | null;
   stop_price: number | null;
+  current_entry: number | null;
+  current_target: number | null;
+  current_stop: number | null;
+  status: string;
+  adjustments_count: number;
+  invalidation_reason: string | null;
   expected_move_pips: number | null;
   reasoning: string | null;
   news_context: string | null;
@@ -148,15 +154,36 @@ export default function DailyForecasts() {
                 <div className="text-muted-foreground text-xs mb-2">{f.reasoning}</div>
               )}
 
-              <div className="flex flex-wrap gap-3 text-xs">
-                <span>Ціна: <b>{f.price_at_forecast}</b></span>
-                {f.target_price && (
-                  <span className="flex items-center gap-1">
-                    <Target className="w-3 h-3" /> {f.target_price}
+              <div className="flex flex-wrap gap-3 text-xs items-center">
+                <span className="text-muted-foreground">старт: {f.price_at_forecast}</span>
+                <span>Entry: <b>{f.current_entry ?? f.price_at_forecast}</b></span>
+                {(f.current_target ?? f.target_price) && (
+                  <span className="flex items-center gap-1 text-success">
+                    <Target className="w-3 h-3" /> TP {f.current_target ?? f.target_price}
                   </span>
                 )}
-                {f.stop_price && <span>Stop: {f.stop_price}</span>}
+                {(f.current_stop ?? f.stop_price) && (
+                  <span className="text-destructive">SL {f.current_stop ?? f.stop_price}</span>
+                )}
+                {f.adjustments_count > 0 && (
+                  <Badge variant="secondary" className="text-[10px]">
+                    ↻ {f.adjustments_count} перерах.
+                  </Badge>
+                )}
+                {f.status === "INVALIDATED" && (
+                  <Badge variant="destructive" className="text-[10px]">Інвалідовано</Badge>
+                )}
+                {f.status === "HIT_TARGET" && (
+                  <Badge className="text-[10px] bg-success">TP спрацював</Badge>
+                )}
+                {f.status === "HIT_STOP" && (
+                  <Badge variant="destructive" className="text-[10px]">SL спрацював</Badge>
+                )}
               </div>
+
+              {f.invalidation_reason && (
+                <div className="text-[11px] text-destructive mt-1">{f.invalidation_reason}</div>
+              )}
 
               {f.evaluated_at ? (
                 <div className="mt-2 pt-2 border-t flex items-center justify-between text-xs">
