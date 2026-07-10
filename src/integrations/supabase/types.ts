@@ -89,6 +89,45 @@ export type Database = {
         }
         Relationships: []
       }
+      cot_positions: {
+        Row: {
+          change_wow: number | null
+          created_at: string
+          currency: string
+          id: string
+          net_position: number | null
+          non_commercial_long: number | null
+          non_commercial_short: number | null
+          open_interest: number | null
+          raw: Json | null
+          report_date: string
+        }
+        Insert: {
+          change_wow?: number | null
+          created_at?: string
+          currency: string
+          id?: string
+          net_position?: number | null
+          non_commercial_long?: number | null
+          non_commercial_short?: number | null
+          open_interest?: number | null
+          raw?: Json | null
+          report_date: string
+        }
+        Update: {
+          change_wow?: number | null
+          created_at?: string
+          currency?: string
+          id?: string
+          net_position?: number | null
+          non_commercial_long?: number | null
+          non_commercial_short?: number | null
+          open_interest?: number | null
+          raw?: Json | null
+          report_date?: string
+        }
+        Relationships: []
+      }
       credit_purchases: {
         Row: {
           amount_cents: number
@@ -733,6 +772,81 @@ export type Database = {
         }
         Relationships: []
       }
+      market_news: {
+        Row: {
+          created_at: string
+          currency: string | null
+          headline: string
+          id: string
+          impact: string | null
+          published_at: string
+          sentiment: number | null
+          source: string | null
+          summary: string | null
+          symbol: string | null
+          url: string | null
+        }
+        Insert: {
+          created_at?: string
+          currency?: string | null
+          headline: string
+          id?: string
+          impact?: string | null
+          published_at: string
+          sentiment?: number | null
+          source?: string | null
+          summary?: string | null
+          symbol?: string | null
+          url?: string | null
+        }
+        Update: {
+          created_at?: string
+          currency?: string | null
+          headline?: string
+          id?: string
+          impact?: string | null
+          published_at?: string
+          sentiment?: number | null
+          source?: string | null
+          summary?: string | null
+          symbol?: string | null
+          url?: string | null
+        }
+        Relationships: []
+      }
+      news_blackouts: {
+        Row: {
+          created_at: string
+          currency: string
+          ends_at: string
+          event_ref: string | null
+          id: string
+          impact: string | null
+          reason: string
+          starts_at: string
+        }
+        Insert: {
+          created_at?: string
+          currency: string
+          ends_at: string
+          event_ref?: string | null
+          id?: string
+          impact?: string | null
+          reason: string
+          starts_at: string
+        }
+        Update: {
+          created_at?: string
+          currency?: string
+          ends_at?: string
+          event_ref?: string | null
+          id?: string
+          impact?: string | null
+          reason?: string
+          starts_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -965,6 +1079,10 @@ export type Database = {
           open: number
           volume: number
         }[]
+      }
+      is_currency_in_blackout: {
+        Args: { p_at?: string; p_currency: string }
+        Returns: boolean
       }
       upsert_forex_price: {
         Args: {
