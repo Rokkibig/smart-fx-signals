@@ -29,6 +29,14 @@ interface Forecast {
   accuracy_score: number | null;
   evaluated_at: string | null;
   created_at: string;
+  n_matches: number | null;
+  p_up: number | null;
+  p_down: number | null;
+  p_flat: number | null;
+  median_move_pips: number | null;
+  median_mae_pips: number | null;
+  stat_source: string | null;
+  pattern_key: string | null;
 }
 
 interface Stat {
