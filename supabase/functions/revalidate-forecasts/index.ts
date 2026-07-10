@@ -10,6 +10,40 @@ function pipSize(symbol: string): number {
   return symbol.includes("JPY") ? 0.01 : 0.0001;
 }
 
+async function rebuildStatsForSymbol(supabase: any, symbol: string) {
+  const { data: rows } = await supabase
+    .from("daily_forecasts")
+    .select("direction, actual_direction, hit_target, hit_stop, accuracy_score, probability, evaluated_at")
+    .eq("symbol", symbol)
+    .not("evaluated_at", "is", null);
+
+  if (!rows || rows.length === 0) return;
+
+  const total = rows.length;
+  const correct = rows.filter((r: any) => r.direction === r.actual_direction).length;
+  const hitTarget = rows.filter((r: any) => r.hit_target === true).length;
+  const hitStop = rows.filter((r: any) => r.hit_stop === true).length;
+  const avgAccuracy = rows.reduce((s: number, r: any) => s + Number(r.accuracy_score ?? 0), 0) / total;
+  const avgProbability = rows.reduce((s: number, r: any) => s + Number(r.probability ?? 0), 0) / total;
+  const lastEvaluated = rows
+    .map((r: any) => r.evaluated_at)
+    .filter(Boolean)
+    .sort()
+    .at(-1);
+
+  await supabase.from("forecast_stats").upsert({
+    symbol,
+    total_forecasts: total,
+    correct_direction: correct,
+    hit_target_count: hitTarget,
+    hit_stop_count: hitStop,
+    avg_accuracy: Number(avgAccuracy.toFixed(2)),
+    avg_probability: Number(avgProbability.toFixed(2)),
+    last_evaluated_at: lastEvaluated,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: "symbol" });
+}
+
 /**
  * Re-anchor активних прогнозів:
  *  1) Якщо TP або SL вже досягнутий live-ціною — status=HIT_TARGET / HIT_STOP.
@@ -43,6 +77,7 @@ serve(async (req) => {
 
     const now = Date.now();
     let hit = 0, invalidated = 0, adjusted = 0, skipped = 0;
+    const changedSymbols = new Set<string>();
 
     for (const f of active) {
       const pip = pipSize(f.symbol);
@@ -77,6 +112,7 @@ serve(async (req) => {
             accuracy_score: 90,
             evaluation_notes: `TP досягнутий live-ціною ${live}`,
           }).eq("id", f.id);
+          changedSymbols.add(f.symbol);
           hit++; continue;
         }
         if (stop != null && live <= stop) {
@@ -90,6 +126,7 @@ serve(async (req) => {
             accuracy_score: 5,
             evaluation_notes: `SL спрацював live-ціною ${live}`,
           }).eq("id", f.id);
+          changedSymbols.add(f.symbol);
           hit++; continue;
         }
       } else if (dir === "down") {
@@ -104,6 +141,7 @@ serve(async (req) => {
             accuracy_score: 90,
             evaluation_notes: `TP досягнутий live-ціною ${live}`,
           }).eq("id", f.id);
+          changedSymbols.add(f.symbol);
           hit++; continue;
         }
         if (stop != null && live >= stop) {
@@ -117,6 +155,7 @@ serve(async (req) => {
             accuracy_score: 5,
             evaluation_notes: `SL спрацював live-ціною ${live}`,
           }).eq("id", f.id);
+          changedSymbols.add(f.symbol);
           hit++; continue;
         }
       }
@@ -126,18 +165,17 @@ serve(async (req) => {
         if ((dir === "up" && live <= origStop) || (dir === "down" && live >= origStop)) {
           await supabase.from("daily_forecasts").update({
             status: "INVALIDATED",
+            evaluated_at: new Date().toISOString(),
+            actual_direction: dir === "up" ? "down" : "up",
+            actual_move_pips: Number((Math.abs(live - entry) / pip).toFixed(2)),
+            hit_target: false,
+            hit_stop: true,
+            accuracy_score: 5,
             invalidation_reason: `Ціна ${live} пробила первинний SL ${origStop}`,
           }).eq("id", f.id);
+          changedSymbols.add(f.symbol);
           invalidated++; continue;
         }
-      }
-
-      // neutral не re-anchor'имо
-      if (dir === "neutral") { skipped++; continue; }
-
-      // 3) rate-limit: не частіше 30 хв
-      if (f.last_revalidated_at && now - new Date(f.last_revalidated_at).getTime() < 30 * 60 * 1000) {
-        skipped++; continue;
       }
 
       // ATR D1 та H1
@@ -153,6 +191,39 @@ serve(async (req) => {
       if (!atrD1 || !atrH1) { skipped++; continue; }
 
       const drift = Math.abs(live - entry);
+
+      // neutral — це не торгова угода. Якщо ціна вже вийшла за флет-поріг, закриваємо прогноз,
+      // щоб у UI не висів старий Entry/TP/SL як активний сигнал.
+      if (dir === "neutral") {
+        const neutralThreshold = Math.max(8 * pip, 0.6 * atrH1);
+        if (drift >= neutralThreshold) {
+          await supabase.from("daily_forecasts").update({
+            status: "EXPIRED",
+            evaluated_at: new Date().toISOString(),
+            actual_direction: live > entry ? "up" : "down",
+            actual_move_pips: Number((drift / pip).toFixed(2)),
+            hit_target: false,
+            hit_stop: false,
+            accuracy_score: 20,
+            evaluation_notes: `Neutral скасовано: ціна відійшла на ${(drift / pip).toFixed(1)}п. від старту`,
+            current_entry: live,
+            last_revalidated_at: new Date().toISOString(),
+          }).eq("id", f.id);
+          changedSymbols.add(f.symbol);
+          invalidated++; continue;
+        }
+        await supabase.from("daily_forecasts").update({
+          current_entry: live,
+          last_revalidated_at: new Date().toISOString(),
+        }).eq("id", f.id);
+        skipped++; continue;
+      }
+
+      // 3) rate-limit: не частіше 30 хв
+      if (f.last_revalidated_at && now - new Date(f.last_revalidated_at).getTime() < 30 * 60 * 1000) {
+        skipped++; continue;
+      }
+
       if (drift < 0.5 * atrD1) { skipped++; continue; }
 
       // 4) Re-anchor
@@ -186,6 +257,10 @@ serve(async (req) => {
       }).eq("id", f.id);
 
       adjusted++;
+    }
+
+    for (const symbol of changedSymbols) {
+      await rebuildStatsForSymbol(supabase, symbol);
     }
 
     return new Response(JSON.stringify({ ok: true, hit, invalidated, adjusted, skipped, total: active.length }), {
