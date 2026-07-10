@@ -39,7 +39,7 @@ export const Header = ({ mode, onModeChange, lastUpdate, autoRefresh, nextRefres
     loadQuality();
     const iv = setInterval(loadQuality, 5 * 60 * 1000);
     return () => clearInterval(iv);
-  }, []);
+  }, [lastUpdate]);
 
   const qualityColor =
     quality === null
