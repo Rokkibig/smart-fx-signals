@@ -29,6 +29,14 @@ interface Forecast {
   accuracy_score: number | null;
   evaluated_at: string | null;
   created_at: string;
+  n_matches: number | null;
+  p_up: number | null;
+  p_down: number | null;
+  p_flat: number | null;
+  median_move_pips: number | null;
+  median_mae_pips: number | null;
+  stat_source: string | null;
+  pattern_key: string | null;
 }
 
 interface Stat {
@@ -181,6 +189,20 @@ export default function DailyForecasts() {
                 )}
                 {f.status === "SKIPPED_NEWS" && (
                   <Badge variant="secondary" className="text-[10px]">⏸ Новини</Badge>
+                )}
+                {f.status === "INSUFFICIENT_HISTORY" && (
+                  <Badge variant="outline" className="text-[10px]">📉 Мало даних{f.n_matches != null ? ` (${f.n_matches})` : ""}</Badge>
+                )}
+                {f.status === "NO_EDGE" && (
+                  <Badge variant="outline" className="text-[10px]">⚖ Немає переваги</Badge>
+                )}
+                {f.n_matches != null && f.n_matches > 0 && (f.status === "ACTIVE" || f.status === "NO_EDGE") && (
+                  <span className="text-[11px] text-muted-foreground">
+                    n={f.n_matches}
+                    {f.p_up != null && f.p_down != null && ` · ↑${f.p_up.toFixed(0)}% ↓${f.p_down.toFixed(0)}%`}
+                    {f.median_mae_pips != null && ` · MAE ${f.median_mae_pips.toFixed(0)}п`}
+                    {f.stat_source === "relaxed_pattern" && " · розшир."}
+                  </span>
                 )}
               </div>
 

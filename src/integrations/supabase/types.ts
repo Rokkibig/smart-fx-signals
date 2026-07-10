@@ -188,11 +188,19 @@ export type Database = {
           id: string
           invalidation_reason: string | null
           last_revalidated_at: string | null
+          median_mae_pips: number | null
+          median_move_pips: number | null
           model_version: string | null
+          n_matches: number | null
           news_context: string | null
+          p_down: number | null
+          p_flat: number | null
+          p_up: number | null
+          pattern_key: string | null
           price_at_forecast: number
           probability: number
           reasoning: string | null
+          stat_source: string | null
           status: string
           stop_price: number | null
           symbol: string
@@ -220,11 +228,19 @@ export type Database = {
           id?: string
           invalidation_reason?: string | null
           last_revalidated_at?: string | null
+          median_mae_pips?: number | null
+          median_move_pips?: number | null
           model_version?: string | null
+          n_matches?: number | null
           news_context?: string | null
+          p_down?: number | null
+          p_flat?: number | null
+          p_up?: number | null
+          pattern_key?: string | null
           price_at_forecast: number
           probability: number
           reasoning?: string | null
+          stat_source?: string | null
           status?: string
           stop_price?: number | null
           symbol: string
@@ -252,11 +268,19 @@ export type Database = {
           id?: string
           invalidation_reason?: string | null
           last_revalidated_at?: string | null
+          median_mae_pips?: number | null
+          median_move_pips?: number | null
           model_version?: string | null
+          n_matches?: number | null
           news_context?: string | null
+          p_down?: number | null
+          p_flat?: number | null
+          p_up?: number | null
+          pattern_key?: string | null
           price_at_forecast?: number
           probability?: number
           reasoning?: string | null
+          stat_source?: string | null
           status?: string
           stop_price?: number | null
           symbol?: string
@@ -814,6 +838,78 @@ export type Database = {
         }
         Relationships: []
       }
+      market_snapshots: {
+        Row: {
+          adx_h1_bucket: string | null
+          adx_h4_bucket: string | null
+          atr_h1: number | null
+          cot_bias: string | null
+          created_at: string
+          dist_ema200_atr_bucket: string | null
+          dow: number | null
+          id: number
+          news_sentiment_bucket: string | null
+          pattern_key: string
+          price: number
+          range_pos_bucket: string | null
+          rsi_h1_bucket: string | null
+          rsi_h4_bucket: string | null
+          session: string | null
+          snapshot_at: string
+          symbol: string
+          trend_d1: string | null
+          trend_h1: string | null
+          trend_h4: string | null
+          trend_m15: string | null
+        }
+        Insert: {
+          adx_h1_bucket?: string | null
+          adx_h4_bucket?: string | null
+          atr_h1?: number | null
+          cot_bias?: string | null
+          created_at?: string
+          dist_ema200_atr_bucket?: string | null
+          dow?: number | null
+          id?: number
+          news_sentiment_bucket?: string | null
+          pattern_key: string
+          price: number
+          range_pos_bucket?: string | null
+          rsi_h1_bucket?: string | null
+          rsi_h4_bucket?: string | null
+          session?: string | null
+          snapshot_at: string
+          symbol: string
+          trend_d1?: string | null
+          trend_h1?: string | null
+          trend_h4?: string | null
+          trend_m15?: string | null
+        }
+        Update: {
+          adx_h1_bucket?: string | null
+          adx_h4_bucket?: string | null
+          atr_h1?: number | null
+          cot_bias?: string | null
+          created_at?: string
+          dist_ema200_atr_bucket?: string | null
+          dow?: number | null
+          id?: number
+          news_sentiment_bucket?: string | null
+          pattern_key?: string
+          price?: number
+          range_pos_bucket?: string | null
+          rsi_h1_bucket?: string | null
+          rsi_h4_bucket?: string | null
+          session?: string | null
+          snapshot_at?: string
+          symbol?: string
+          trend_d1?: string | null
+          trend_h1?: string | null
+          trend_h4?: string | null
+          trend_m15?: string | null
+        }
+        Relationships: []
+      }
       news_blackouts: {
         Row: {
           created_at: string
@@ -953,6 +1049,50 @@ export type Database = {
             columns: ["review_id"]
             isOneToOne: false
             referencedRelation: "daily_market_reviews"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      snapshot_outcomes: {
+        Row: {
+          computed_at: string
+          direction_24h: string
+          horizon_hours: number
+          mae_atr: number | null
+          mae_pips: number
+          mfe_atr: number | null
+          mfe_pips: number
+          move_pips: number
+          snapshot_id: number
+        }
+        Insert: {
+          computed_at?: string
+          direction_24h: string
+          horizon_hours?: number
+          mae_atr?: number | null
+          mae_pips: number
+          mfe_atr?: number | null
+          mfe_pips: number
+          move_pips: number
+          snapshot_id: number
+        }
+        Update: {
+          computed_at?: string
+          direction_24h?: string
+          horizon_hours?: number
+          mae_atr?: number | null
+          mae_pips?: number
+          mfe_atr?: number | null
+          mfe_pips?: number
+          move_pips?: number
+          snapshot_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "snapshot_outcomes_snapshot_id_fkey"
+            columns: ["snapshot_id"]
+            isOneToOne: true
+            referencedRelation: "market_snapshots"
             referencedColumns: ["id"]
           },
         ]

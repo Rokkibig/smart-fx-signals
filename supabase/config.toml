@@ -29,3 +29,9 @@ verify_jwt = false
 
 [functions.revise-forecasts-on-news]
 verify_jwt = false
+
+[functions.backfill-snapshots]
+verify_jwt = false
+
+[functions.generate-statistical-forecast]
+verify_jwt = false
