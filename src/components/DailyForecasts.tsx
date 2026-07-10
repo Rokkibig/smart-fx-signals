@@ -179,6 +179,9 @@ export default function DailyForecasts() {
                 {f.status === "HIT_STOP" && (
                   <Badge variant="destructive" className="text-[10px]">SL спрацював</Badge>
                 )}
+                {f.status === "SKIPPED_NEWS" && (
+                  <Badge variant="secondary" className="text-[10px]">⏸ Новини</Badge>
+                )}
               </div>
 
               {f.invalidation_reason && (
