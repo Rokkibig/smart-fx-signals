@@ -15,6 +15,11 @@ function pipSize(symbol: string): number {
   return symbol.includes("JPY") ? 0.01 : 0.0001;
 }
 
+function currenciesOf(symbol: string): string[] {
+  const [b, q] = symbol.split("/");
+  return [b, q];
+}
+
 async function callAI(apiKey: string, system: string, user: string): Promise<any> {
   const r = await fetch(LOVABLE_GW, {
     method: "POST",
@@ -54,8 +59,38 @@ serve(async (req) => {
   try {
     const forecastDate = new Date().toISOString().slice(0, 10);
     const results: any[] = [];
+    const skipped: any[] = [];
 
     for (const symbol of SYMBOLS) {
+      const [base, quote] = currenciesOf(symbol);
+
+      // 0) Blackout check
+      const nowIso = new Date().toISOString();
+      const { data: blackouts } = await supabase
+        .from("news_blackouts")
+        .select("currency, reason, ends_at")
+        .in("currency", [base, quote])
+        .lte("starts_at", nowIso)
+        .gte("ends_at", nowIso);
+
+      if (blackouts && blackouts.length > 0) {
+        await supabase.from("daily_forecasts").upsert({
+          symbol,
+          forecast_date: forecastDate,
+          forecast_horizon_hours: 24,
+          direction: "neutral",
+          probability: 50,
+          price_at_forecast: 0,
+          status: "SKIPPED_NEWS",
+          adjustments_count: 0,
+          reasoning: `Пропущено: активне news-blackout вікно (${blackouts.map((b: any) => b.reason).join("; ")}).`,
+          news_context: JSON.stringify(blackouts),
+          model_version: MODEL,
+        }, { onConflict: "symbol,forecast_date" });
+        skipped.push({ symbol, reason: "news_blackout" });
+        continue;
+      }
+
       // 1) Ціна + індикатори
       const { data: priceRow } = await supabase
         .from("forex_prices")
@@ -74,7 +109,7 @@ serve(async (req) => {
         .order("calculated_at", { ascending: false })
         .limit(4);
 
-      // 2) Історія помилок для навчання
+      // 2) Історія помилок
       const { data: stats } = await supabase
         .from("forecast_stats")
         .select("*")
@@ -83,35 +118,57 @@ serve(async (req) => {
 
       const { data: recentEvaluated } = await supabase
         .from("daily_forecasts")
-        .select("forecast_date, direction, probability, actual_direction, actual_move_pips, accuracy_score, evaluation_notes")
+        .select("forecast_date, direction, probability, actual_direction, actual_move_pips, accuracy_score")
         .eq("symbol", symbol)
         .not("evaluated_at", "is", null)
         .order("forecast_date", { ascending: false })
         .limit(10);
 
+      // 3) Останні новини за 12 год по обох валютах
+      const sinceIso = new Date(Date.now() - 12 * 3600 * 1000).toISOString();
+      const { data: news } = await supabase
+        .from("market_news")
+        .select("headline, sentiment, impact, published_at, currency")
+        .in("currency", [base, quote])
+        .gte("published_at", sinceIso)
+        .order("published_at", { ascending: false })
+        .limit(15);
+
+      // 4) COT — останній звіт по обох валютах
+      const { data: cot } = await supabase
+        .from("cot_positions")
+        .select("currency, report_date, net_position, change_wow")
+        .in("currency", [base, quote])
+        .order("report_date", { ascending: false })
+        .limit(4);
+
       const system = `Ти — старший FX-аналітик. Складаєш прогноз на наступні 24 години.
-Формат відповіді — JSON з ключами:
+Використовуй ВСІ дані: технічні індикатори, останні новини (sentiment), позиціонування великих гравців (COT), історію помилок.
+Формат відповіді — JSON:
 {
   "direction": "up" | "down" | "neutral",
-  "probability": число 50-95 (впевненість у %),
-  "expected_move_pips": число (очікуваний рух у пунктах),
-  "target_price": число (цільова ціна),
-  "stop_price": число (інвалідація прогнозу),
-  "reasoning": рядок (2-4 речення українською: тех.аналіз + макро + ризики),
-  "news_context": рядок (важливі події, що можуть вплинути; якщо невідомо — "немає даних")
+  "probability": 50-95,
+  "expected_move_pips": число,
+  "target_price": число,
+  "stop_price": число,
+  "reasoning": "2-4 речення українською: тех + фунд + ризики",
+  "news_context": "коротко про поточний новинний фон"
 }
-Обов'язково враховуй попередні помилки моделі — коригуй впевненість.`;
+Якщо news sentiment суперечить тех.аналізу — знижуй probability. Якщо COT показує екстремальне позиціонування — врахуй ризик розвороту.`;
 
       const userPrompt = JSON.stringify({
         symbol,
         current_price: price,
         pip_size: pipSize(symbol),
         indicators_by_tf: features,
+        recent_news: news,
+        cot_positioning: cot,
         historical_accuracy: stats ? {
           total: stats.total_forecasts,
-          correct_direction_rate: stats.total_forecasts > 0 ? (stats.correct_direction / stats.total_forecasts * 100).toFixed(1) + "%" : "n/a",
+          correct_direction_rate: stats.total_forecasts > 0
+            ? (stats.correct_direction / stats.total_forecasts * 100).toFixed(1) + "%"
+            : "n/a",
           avg_accuracy: stats.avg_accuracy,
-          recent_mistakes: stats.recent_mistakes,
         } : null,
         last_10_forecasts: recentEvaluated,
       }, null, 2);
@@ -124,7 +181,6 @@ serve(async (req) => {
         continue;
       }
 
-      // 3) Зберігаємо (upsert по symbol+date)
       const { error } = await supabase
         .from("daily_forecasts")
         .upsert({
@@ -144,18 +200,17 @@ serve(async (req) => {
           expected_move_pips: forecast.expected_move_pips ?? null,
           reasoning: forecast.reasoning ?? null,
           news_context: forecast.news_context ?? null,
-          technical_snapshot: { features, price },
+          technical_snapshot: { features, price, news_count: news?.length ?? 0, cot },
           model_version: MODEL,
         }, { onConflict: "symbol,forecast_date" });
 
       if (error) console.error(`Save failed ${symbol}:`, error);
       results.push({ symbol, direction: forecast.direction, probability: forecast.probability });
 
-      // невеликий буфер, щоб не впертися у rate-limit
       await new Promise((r) => setTimeout(r, 1200));
     }
 
-    return new Response(JSON.stringify({ ok: true, count: results.length, results }), {
+    return new Response(JSON.stringify({ ok: true, count: results.length, results, skipped }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e: any) {
