@@ -1,0 +1,135 @@
+{
+  "version": 1,
+  "sdk_version": "0.24.0",
+  "path": "/functions/v1/mcp",
+  "auth": {
+    "type": "oauth",
+    "issuer": "https://gyiycegbniblicrbikji.supabase.co/auth/v1",
+    "accepted_audiences": [
+      "authenticated"
+    ]
+  },
+  "mcp": {
+    "server": {
+      "name": "fx-signal-suite-mcp",
+      "version": "0.1.0",
+      "title": "FX Signal Suite"
+    },
+    "tools": [
+      {
+        "name": "get_latest_price",
+        "title": "Get latest forex price",
+        "description": "Returns the most recent price, bid, ask and spread for a supported forex pair.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "symbol": {
+              "type": "string",
+              "enum": [
+                "EUR/USD",
+                "GBP/USD",
+                "USD/JPY",
+                "USD/CHF",
+                "AUD/USD",
+                "NZD/USD",
+                "USD/CAD"
+              ],
+              "description": "Forex pair symbol, e.g. EUR/USD"
+            }
+          },
+          "required": [
+            "symbol"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_daily_forecasts",
+        "title": "List daily forecasts",
+        "description": "Latest statistical daily forecasts across all tracked forex pairs (direction, entry, SL, TP, probability).",
+        "annotations": {
+          "readOnlyHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "limit": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "description": "Max rows to return (1..50)",
+              "default": 10
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_market_review",
+        "title": "Get latest market review",
+        "description": "Returns the most recent Bull/Bear + Master AI market review with top-ideas and context.",
+        "annotations": {
+          "readOnlyHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_my_credits",
+        "title": "Get my credits balance",
+        "description": "Returns the signed-in user's remaining AI analysis credits.",
+        "annotations": {
+          "readOnlyHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_my_demo_trades",
+        "title": "List my demo trades",
+        "description": "Returns the signed-in user's demo trades (open and closed), most recent first.",
+        "annotations": {
+          "readOnlyHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "OPEN",
+                "CLOSED",
+                "ALL"
+              ],
+              "description": "Filter by status",
+              "default": "ALL"
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      }
+    ]
+  }
+}
