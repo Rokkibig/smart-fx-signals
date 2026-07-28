@@ -37,6 +37,9 @@ interface Forecast {
   median_mae_pips: number | null;
   stat_source: string | null;
   pattern_key: string | null;
+  external_direction: string | null;
+  external_confidence: number | null;
+  external_agreement: string | null;
 }
 
 interface Stat {
@@ -208,6 +211,26 @@ export default function DailyForecasts() {
 
               {f.invalidation_reason && (
                 <div className="text-[11px] text-destructive mt-1">{f.invalidation_reason}</div>
+              )}
+
+              {f.external_agreement && f.external_agreement !== 'NO_DATA' && (
+                <div className="mt-2 flex items-center gap-2 text-[11px]">
+                  <span className="text-muted-foreground">Зовн. API:</span>
+                  {dirIcon(f.external_direction ?? 'neutral')}
+                  <span className="uppercase">{f.external_direction}</span>
+                  {f.external_confidence != null && (
+                    <span className="text-muted-foreground">{Math.round(f.external_confidence)}%</span>
+                  )}
+                  {f.external_agreement === 'MATCH' && (
+                    <Badge className="text-[10px] bg-success">⭐ Збіг</Badge>
+                  )}
+                  {f.external_agreement === 'CONFLICT' && (
+                    <Badge variant="destructive" className="text-[10px]">⚠ Розбіжність</Badge>
+                  )}
+                  {f.external_agreement === 'MIXED' && (
+                    <Badge variant="secondary" className="text-[10px]">Частковий</Badge>
+                  )}
+                </div>
               )}
 
               {f.evaluated_at ? (
