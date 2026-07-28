@@ -181,6 +181,9 @@ export type Database = {
           evaluated_at: string | null
           evaluation_notes: string | null
           expected_move_pips: number | null
+          external_agreement: string | null
+          external_confidence: number | null
+          external_direction: string | null
           forecast_date: string
           forecast_horizon_hours: number
           hit_stop: boolean | null
@@ -221,6 +224,9 @@ export type Database = {
           evaluated_at?: string | null
           evaluation_notes?: string | null
           expected_move_pips?: number | null
+          external_agreement?: string | null
+          external_confidence?: number | null
+          external_direction?: string | null
           forecast_date: string
           forecast_horizon_hours?: number
           hit_stop?: boolean | null
@@ -261,6 +267,9 @@ export type Database = {
           evaluated_at?: string | null
           evaluation_notes?: string | null
           expected_move_pips?: number | null
+          external_agreement?: string | null
+          external_confidence?: number | null
+          external_direction?: string | null
           forecast_date?: string
           forecast_horizon_hours?: number
           hit_stop?: boolean | null
@@ -473,6 +482,54 @@ export type Database = {
           title?: string
           unit?: string | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      external_forecasts: {
+        Row: {
+          confidence: number | null
+          created_at: string
+          direction: string
+          entry: number | null
+          fetched_at: string
+          forecast_date: string
+          horizon_hours: number | null
+          id: string
+          raw: Json | null
+          sl: number | null
+          source: string
+          symbol: string
+          tp: number | null
+        }
+        Insert: {
+          confidence?: number | null
+          created_at?: string
+          direction: string
+          entry?: number | null
+          fetched_at?: string
+          forecast_date?: string
+          horizon_hours?: number | null
+          id?: string
+          raw?: Json | null
+          sl?: number | null
+          source?: string
+          symbol: string
+          tp?: number | null
+        }
+        Update: {
+          confidence?: number | null
+          created_at?: string
+          direction?: string
+          entry?: number | null
+          fetched_at?: string
+          forecast_date?: string
+          horizon_hours?: number | null
+          id?: string
+          raw?: Json | null
+          sl?: number | null
+          source?: string
+          symbol?: string
+          tp?: number | null
         }
         Relationships: []
       }
