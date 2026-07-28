@@ -35,3 +35,9 @@ verify_jwt = false
 
 [functions.generate-statistical-forecast]
 verify_jwt = false
+
+[functions.forex-external]
+verify_jwt = false
+
+[functions.sync-external-forecasts]
+verify_jwt = false
